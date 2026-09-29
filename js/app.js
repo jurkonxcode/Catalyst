@@ -110,12 +110,7 @@ async function syncInventory(itemId){await sb.from('inventory').upsert({user_id:
 
 function buildCost(bId){return BUILDINGS[bId].baseCost;}
 function upgradeCost(bId){return Math.floor(BUILDINGS[bId].baseCost*Math.pow(1.5,buildings[bId].level));}
-function getUpgradeDurationMs(bId){
-  const base=BUILDINGS[bId].upgradeTime*1000;
-  const lvl=buildings[bId].level;
-  const raw = lvl === 0 ? base : Math.floor(base*(1+lvl*0.5));
-  return Math.floor(raw/getBoostMult());
-}
+function getUpgradeDurationMs(bId){const base=BUILDINGS[bId].upgradeTime*1000;const lvl=buildings[bId].level;const raw=lvl===0?base:Math.floor(base*(1+lvl*0.5));return Math.floor(raw/getBoostMult());}
 function getProductionDuration(bId){return Math.floor(BUILDINGS[bId].duration/getBoostMult());}
 function getOutputQty(bId){const l=buildings[bId].level;return l?Math.floor(BUILDINGS[bId].output.qty*(1+(l-1)*0.5)):0;}
 function getInputQty(bId,itemId){const l=buildings[bId].level;return l?Math.ceil(BUILDINGS[bId].inputs[itemId]*(1+(l-1)*0.3)):0;}
@@ -125,13 +120,21 @@ function addXP(n){profile.xp+=n;const nl=1+Math.floor(profile.xp/1500);if(nl>pro
 async function checkLevelRewards(){const claimed=(profile.level_rewards_claimed||'').split(',').filter(x=>x);for(const[lvlStr,reward]of Object.entries(LEVEL_REWARDS)){const lvl=parseInt(lvlStr);if(profile.level>=lvl&&!claimed.includes(lvlStr)){profile.cash+=reward;claimed.push(lvlStr);profile.level_rewards_claimed=claimed.join(',');await syncProfile();setTimeout(()=>{toast('🎁 '+t('levelup_reward')+' Lv '+lvl+': +'+money(reward),'good');},600);}}}
 
 /* ============================================================
-   BUILD — dengan construction timer & error handling
+   BUILD — dengan konfirmasi & error handling
    ============================================================ */
 async function build(bId){
   const st=buildings[bId];
   if(st.level>0 || st.upgrading) return;
   const c=buildCost(bId);
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
+
+  const remaining = profile.cash - c;
+  if (remaining < 500) {
+    const msg = currentLang === 'id'
+      ? `⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nKamu mungkin kesulitan bangun bangunan lain setelah ini.\n\nLanjut?`
+      : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nYou may struggle to build other buildings.\n\nContinue?`;
+    if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
+  }
 
   const oldCash = profile.cash;
   const oldUpgrading = st.upgrading;
@@ -168,6 +171,14 @@ async function upgrade(bId){
   if(st.level>=CONFIG.MAX_LEVEL)return toast(t('t_max_level'),'info');
   const c=upgradeCost(bId);
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
+
+  const remaining = profile.cash - c;
+  if (remaining < 500) {
+    const msg = currentLang === 'id'
+      ? `⚠️ Peringatan!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nLanjut?`
+      : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nContinue?`;
+    if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
+  }
 
   const oldCash = profile.cash;
   const oldUpgrading = st.upgrading;
