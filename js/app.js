@@ -2,8 +2,10 @@ const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let user = null, profile = null;
 let buildings = {}, inventory = {};
 let marketOrders = [], myOrders = [];
+let leaderboardData = null;
 let tickerPrices = {};
 let currentTab = 'buildings';
+let storageSubTab = 'rank';
 let progressRaf = null;
 let modalItemId = null, modalSellOrderItem = null;
 let marketFilter = 'all';
@@ -91,7 +93,6 @@ function updateStaticUI(){
   });
 }
 
-/* AUTH */
 function switchTab(tab){
   $('tabLogin').classList.toggle('active',tab==='login');
   $('tabRegister').classList.toggle('active',tab==='register');
@@ -128,7 +129,7 @@ async function doLogout(){
   Object.values(buildings).forEach(b=>{clearTimeout(b._timer);clearTimeout(b._upTimer);});
   if(realtimeChannel){ sb.removeChannel(realtimeChannel); realtimeChannel=null; }
   await sb.auth.signOut();
-  user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];
+  user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;
   $('loginForm').reset();$('registerForm').reset();
   showScreen('auth');switchTab('login');
   toast(t('t_logout_msg'),'info');
@@ -173,6 +174,16 @@ async function loadMarketOrders(){
   myOrders = all.filter(o => o.seller_id === user.id);
   updateTickerFromMarket();
 }
+
+async function loadLeaderboard(){
+  const { data, error } = await sb.from('profiles')
+    .select('id, username, company_name, avatar, level, xp, company_value')
+    .order('company_value', { ascending: false })
+    .limit(50);
+  if (error) { console.warn(error); leaderboardData = []; return; }
+  leaderboardData = data || [];
+}
+
 function updateTickerFromMarket(){
   const lowest = {};
   for (const o of marketOrders) {
@@ -201,13 +212,11 @@ function renderTicker(){
     const priceText = price != null ? '$' + price.toFixed(2) : '—';
     html += `<div class="ticker-item" onclick="jumpToExchange('${itemId}')">
       <span class="t-emoji">${def.emoji}</span><span class="t-price">${priceText}</span>
-      <span class="t-change ${change}">${arrow}${pct ? ' '+pct : ''}</span>
-    </div>`;
+      <span class="t-change ${change}">${arrow}${pct ? ' '+pct : ''}</span></div>`;
     if (price != null) hasAny = true;
   }
-  if (!hasAny && marketOrders.length === 0) {
-    bar.innerHTML = '<div class="ticker-loading">'+t('ex_empty')+'</div>';
-  } else bar.innerHTML = html;
+  if (!hasAny && marketOrders.length === 0) bar.innerHTML = '<div class="ticker-loading">'+t('ex_empty')+'</div>';
+  else bar.innerHTML = html;
 }
 function jumpToExchange(itemId){
   marketFilter = itemId; currentTab = 'exchange';
@@ -224,7 +233,6 @@ function subscribeRealtime(){
     .subscribe();
 }
 
-/* ONBOARDING */
 document.querySelectorAll('.avatar-opt').forEach(opt=>{
   opt.addEventListener('click',()=>{
     document.querySelectorAll('.avatar-opt').forEach(o=>o.classList.remove('selected'));
@@ -248,15 +256,20 @@ async function submitOnboarding(){
   toast(t('t_welcome')+', '+company+'!','good');
 }
 
-/* SYNC */
-async function syncProfile(){await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level}).eq('id',user.id);}
+async function syncProfile(){
+  const cv = getCompanyValue();
+  profile.company_value = cv;
+  await sb.from('profiles').update({
+    cash:profile.cash, xp:profile.xp, level:profile.level,
+    company_value: cv
+  }).eq('id',user.id);
+}
 async function syncBuilding(bId){const b=buildings[bId];
   await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,
     ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,
     upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null},{onConflict:'user_id,building_id'});}
 async function syncInventory(itemId){await sb.from('inventory').upsert({user_id:user.id,item_id:itemId,qty:inventory[itemId].qty},{onConflict:'user_id,item_id'});}
 
-/* LOGIC */
 function buildCost(bId){return BUILDINGS[bId].baseCost;}
 function upgradeCost(bId){return Math.floor(BUILDINGS[bId].baseCost*Math.pow(1.5,buildings[bId].level));}
 function getUpgradeDurationMs(bId){return Math.floor(BUILDINGS[bId].upgradeTime*1000*(1+buildings[bId].level*0.5));}
@@ -327,7 +340,6 @@ async function finishProduction(bId){
   else render();
 }
 
-/* SELL MODAL */
 function sellFromStorage(itemId){
   const it = inventory[itemId];
   if (it.qty <= 0) return toast(t('t_insufficient_input'),'bad');
@@ -372,7 +384,6 @@ async function confirmSell(){
   closeModal();render();toast('💰 +'+money(revenue),'good');
 }
 
-/* CREATE ORDER */
 function openCreateOrderModal(){
   const owned = Object.entries(inventory).filter(([id, it]) => it.qty > 0);
   if (owned.length === 0) return toast(currentLang==='id'?'Tidak ada barang untuk dijual':'Nothing to sell','bad');
@@ -406,8 +417,7 @@ function openCreateOrderModal(){
             <div class="modal-info-row"><span class="k">${currentLang==='id'?'Order aktif':'Active'}</span><span class="v">${myOrders.length} / ${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</span></div></div>
           <div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button>
             <button class="btn btn-gold" id="orderSubmitBtn" onclick="submitSellOrder()">📢 ${currentLang==='id'?'Pasang':'Post'}</button></div>
-        </div>
-      </div></div>`;
+        </div></div></div>`;
 }
 function pickSellOrderItem(itemId){
   modalSellOrderItem = itemId;
@@ -450,7 +460,6 @@ async function submitSellOrder(){
   toast(currentLang==='id'?'📢 Order dipasang!':'📢 Order posted!','good');
 }
 
-/* BUY */
 function openBuyModal(orderId){
   const order = marketOrders.find(o => o.id === orderId);if (!order) return;
   const def = ITEMS[order.item_id];const price = parseFloat(order.price_per_unit);const maxQty = order.qty;
@@ -461,8 +470,7 @@ function openBuyModal(orderId){
         <div class="modal-title">${def.emoji} ${t('ex_buy')} ${t(def.nameKey)}</div>
         <div class="modal-info" style="margin-bottom:12px;">
           <div class="modal-info-row"><span class="k">${currentLang==='id'?'Penjual':'Seller'}</span><span class="v">${order.seller_username}</span></div>
-          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Harga':'Price'}</span><span class="v">$${price.toFixed(2)}/unit</span></div>
-        </div>
+          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Harga':'Price'}</span><span class="v">$${price.toFixed(2)}/unit</span></div></div>
         <div class="modal-field"><label>${t('sell_qty')} (max: ${nf.format(maxQty)})</label>
           <div class="qty-control"><button onclick="adjustBuyQty(-10, ${orderId})">−10</button>
             <input type="number" id="buyQty" value="${maxQty}" min="1" max="${maxQty}" oninput="updateBuyTotal(${orderId}, ${price})">
@@ -470,8 +478,7 @@ function openBuyModal(orderId){
           <button class="btn-max" onclick="setBuyQty(${orderId}, ${maxQty}, ${price})">MAX (${nf.format(maxQty)})</button></div>
         <div class="modal-info">
           <div class="modal-info-row"><span class="k">${currentLang==='id'?'Total bayar':'Total'}</span><span class="v gold" id="buyTotal">$${(maxQty*price).toFixed(2)}</span></div>
-          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Kas kamu':'Your cash'}</span><span class="v">${money(profile.cash)}</span></div>
-        </div>
+          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Kas kamu':'Your cash'}</span><span class="v">${money(profile.cash)}</span></div></div>
         <div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button>
           <button class="btn btn-green" id="buyConfirmBtn" onclick="confirmBuy(${orderId})">🛒 ${t('ex_buy')}</button></div>
       </div></div>`;
@@ -503,16 +510,12 @@ async function cancelOrder(orderId){
   toast(currentLang==='id'?'Order dibatalkan':'Cancelled','info');
 }
 
-/* EDIT PROFILE */
 function openEditProfileModal(){
   const avatars = ['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];
   const avatarHtml = avatars.map(e => `<div class="avatar-opt ${(profile.avatar||'🏭')===e?'selected':''}" data-emoji="${e}" onclick="pickEditAvatar('${e}')">${e}</div>`).join('');
   const countries = [
-    {code:'id',name:'🇮🇩 Indonesia'},
-    {code:'us',name:'🇺🇸 United States'},
-    {code:'sg',name:'🇸🇬 Singapore'},
-    {code:'my',name:'🇲🇾 Malaysia'},
-    {code:'jp',name:'🇯🇵 Japan'},
+    {code:'id',name:'🇮🇩 Indonesia'},{code:'us',name:'🇺🇸 United States'},
+    {code:'sg',name:'🇸🇬 Singapore'},{code:'my',name:'🇲🇾 Malaysia'},{code:'jp',name:'🇯🇵 Japan'},
   ];
   const countryHtml = countries.map(c => `<option value="${c.code}" ${(profile.country_code||'id')===c.code?'selected':''}>${c.name}</option>`).join('');
   $('modalContainer').innerHTML = `
@@ -553,7 +556,6 @@ async function saveEditProfile(){
   closeModal();render();toast(t('t_profile_saved'),'good');
 }
 
-/* MISC */
 function recoverPrices(){let changed=false;
   for(const[id,it]of Object.entries(inventory)){const base=ITEMS[id].basePrice;
     if(it.price<base){it.price=Math.min(base,it.price*CONFIG.PRICE_RECOVER);changed=true;}}
@@ -565,6 +567,110 @@ function resumeAllActions(){
     else if(st.producing&&st.endsAt){if(Date.now()>=st.endsAt)finishProduction(bId);else scheduleFinish(bId);}
     else if(st.auto&&st.level>0&&hasInputs(bId))startProduction(bId);
   }
+}
+
+/* ============================================================
+   WAREHOUSE SUB-TABS
+   ============================================================ */
+function setStorageSub(id){
+  storageSubTab = id;
+  if (id === 'rank') {
+    leaderboardData = null;
+    render();
+    loadLeaderboard().then(() => { if (currentTab === 'storage' && storageSubTab === 'rank') render(); });
+    return;
+  }
+  render();
+}
+
+function renderStorage(){
+  let html = '<div class="sub-nav">';
+  const subs = [
+    {id:'rank', icon:'📊', label:t('storage_rank')},
+    {id:'history', icon:'📜', label:t('storage_history')},
+    {id:'incoming', icon:'📥', label:t('storage_incoming')},
+    {id:'outgoing', icon:'📤', label:t('storage_outgoing')},
+    {id:'buildings', icon:'🏭', label:t('storage_buildings')},
+    {id:'research', icon:'🔬', label:t('storage_research')},
+  ];
+  for (const s of subs) {
+    html += `<button class="sub-tab ${storageSubTab===s.id?'active':''}" onclick="setStorageSub('${s.id}')">
+      <span class="sub-icon">${s.icon}</span>
+      <span class="sub-label">${s.label}</span>
+    </button>`;
+  }
+  html += '</div>';
+
+  if (storageSubTab === 'rank') html += renderRankTab();
+  else if (storageSubTab === 'buildings') html += renderBuildingsListTab();
+  else html += renderComingSoon();
+
+  return html;
+}
+
+function renderRankTab(){
+  if (leaderboardData === null) {
+    loadLeaderboard().then(() => { if (currentTab === 'storage' && storageSubTab === 'rank') render(); });
+    return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';
+  }
+  if (leaderboardData.length === 0) {
+    return '<div class="ex-empty"><span class="big">📊</span>'+t('rank_title')+'</div>';
+  }
+  let html = '<div class="section-title">'+t('rank_title')+'</div>';
+  let rank = 1;
+  for (const p of leaderboardData) {
+    const isMe = p.id === user.id;
+    let posHtml = '#'+rank;
+    let posCls = '';
+    if (rank === 1) { posHtml = '🥇'; posCls = 'gold'; }
+    else if (rank === 2) { posHtml = '🥈'; posCls = 'gold'; }
+    else if (rank === 3) { posHtml = '🥉'; posCls = 'gold'; }
+    html += `<div class="rank-row ${isMe?'me':''}">
+      <div class="rank-pos ${posCls}">${posHtml}</div>
+      <div class="rank-avatar">${p.avatar||'🏭'}</div>
+      <div class="rank-info">
+        <div class="rank-name">${p.company_name||p.username}${isMe?'<span class="rank-you">'+t('rank_you')+'</span>':''}</div>
+        <div class="rank-meta">Lv ${p.level||1} · @${p.username}</div>
+      </div>
+      <div class="rank-value">${money(p.company_value||0)}</div>
+    </div>`;
+    rank++;
+  }
+  return html;
+}
+
+function renderBuildingsListTab(){
+  let html = '<div class="section-title">'+t('buildings_list_title')+'</div>';
+  const cats = {};
+  for (const [bId, b] of Object.entries(BUILDINGS)) {
+    const cat = t(b.categoryKey);
+    if (!cats[cat]) cats[cat] = [];
+    cats[cat].push([bId, b]);
+  }
+  for (const [catName, arr] of Object.entries(cats)) {
+    html += '<div class="cat-header">'+catName+'</div>';
+    for (const [bId, b] of arr) {
+      const st = buildings[bId];
+      const built = st.level > 0;
+      html += `<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;">
+        <div style="font-size:26px;flex-shrink:0;">${b.emoji}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:800;">${t(b.nameKey)}</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${built?'Lv '+st.level:'—'}</div>
+        </div>
+        ${built ? '<div class="lvl-badge">Lv '+st.level+'</div>' : '<div class="status locked">'+t('status_not_built')+'</div>'}
+      </div>`;
+    }
+  }
+  return html;
+}
+
+function renderComingSoon(){
+  return `<div class="ex-empty">
+    <span class="big">🚧</span>
+    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div>
+    <div style="font-size:11.5px;">${t('coming_soon_desc')}</div>
+  </div>`;
 }
 
 /* RENDER */
@@ -629,25 +735,6 @@ function renderOneBuilding(bId,b){
     '<div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b></div></div>'+
     '<div>'+statusHtml+'</div></div>'+progHtml+btnHtml+'</div>';
 }
-function renderStorage(){
-  const cats={};
-  for(const[id,it]of Object.entries(inventory)){const cat=t(ITEMS[id].categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([id,it]);}
-  let html='';
-  for(const[catName,arr]of Object.entries(cats)){
-    html+='<div class="cat-header">'+catName+'</div><div class="item-grid">';
-    for(const[id,it]of arr){
-      const onclick = it.qty>0 ? ' onclick="sellFromStorage(\''+id+'\')"' : '';
-      html+='<div class="item-card"'+onclick+'>'+
-        '<div class="item-emoji">'+ITEMS[id].emoji+'</div>'+
-        '<div class="item-name">'+t(ITEMS[id].nameKey)+'</div>'+
-        '<div class="item-qty">'+nf.format(it.qty)+'</div>'+
-        (it.qty>0?'<div style="font-size:9px;color:#e69500;font-weight:700;margin-top:2px;">TAP TO SELL</div>':'')+
-        '</div>';
-    }
-    html+='</div>';
-  }
-  return html;
-}
 function renderExchange(){
   let html = '<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';
   html += '<div class="ex-filters">';
@@ -671,11 +758,8 @@ function renderExchange(){
   html += `<div class="ex-section"><div class="ex-section-header">
     <div class="ex-section-title">${t('ex_global_market')}</div>
     <div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;
-  if (filteredMarket.length === 0) {
-    html += `<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;
-  } else {
-    for (const o of filteredMarket) html += renderOrderRow(o, false);
-  }
+  if (filteredMarket.length === 0) html += `<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;
+  else for (const o of filteredMarket) html += renderOrderRow(o, false);
   html += '</div>';
   return html;
 }
@@ -746,7 +830,7 @@ function renderProfile(){
           <div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div>
           <div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div>
     <div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">
-      JurkonCompanies v4 · Light Theme</div>`;
+      JurkonCompanies v5 · Warehouse Sub-Nav</div>`;
 }
 async function saveDescription(){
   const ta = document.getElementById('descInput');if(!ta) return;
@@ -775,7 +859,7 @@ async function deleteAccount(){
     await sb.from('buildings').delete().eq('user_id', user.id);
     await sb.from('market_orders').update({status:'cancelled'}).eq('seller_id', user.id);
     await sb.auth.signOut();
-    user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];
+    user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;
     $('loginForm').reset();$('registerForm').reset();
     showScreen('auth');switchTab('login');
   } catch(e) { toast('❌ '+e.message,'bad'); }
@@ -819,7 +903,12 @@ function tickProgress(){
 document.querySelectorAll('.tab').forEach(tabEl=>{
   tabEl.addEventListener('click',()=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    tabEl.classList.add('active');currentTab=tabEl.dataset.tab;render();
+    tabEl.classList.add('active');
+    currentTab=tabEl.dataset.tab;
+    if (currentTab === 'storage' && leaderboardData === null) {
+      loadLeaderboard().then(() => { if (currentTab === 'storage' && storageSubTab === 'rank') render(); });
+    }
+    render();
   });
 });
 (async()=>{
