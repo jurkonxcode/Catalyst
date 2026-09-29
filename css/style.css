@@ -449,3 +449,34 @@ nav.tabs{position:absolute;bottom:0;left:0;right:0;background:#ffffff;
   font-variant-numeric:tabular-nums;flex-shrink:0;}
 .rank-you{font-size:9px;font-weight:800;background:var(--accent);color:#fff;
   padding:2px 6px;border-radius:4px;margin-left:5px;vertical-align:middle;letter-spacing:0.3px;}
+
+/* ============ CREDITS ============ */
+.credits-card{background:linear-gradient(180deg,#1a1f2b,#141821);
+  border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius);
+  padding:18px 16px;margin-top:14px;text-align:center;position:relative;
+  overflow:hidden;color:#eef1f7;}
+.credits-card::before{content:'';position:absolute;top:-50%;left:-50%;
+  width:200%;height:200%;
+  background:radial-gradient(circle,rgba(96,165,250,0.06),transparent 60%);
+  pointer-events:none;}
+.credits-logo{width:44px;height:44px;border-radius:11px;margin:0 auto 10px;
+  background:linear-gradient(135deg,#60a5fa,#4ade80);
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+  box-shadow:0 4px 14px rgba(96,165,250,0.3);position:relative;}
+.credits-title{font-size:15px;font-weight:800;letter-spacing:-0.02em;
+  color:#fff;position:relative;}
+.credits-sub{font-size:10px;color:#9aa4b8;text-transform:uppercase;
+  letter-spacing:1.2px;font-weight:700;margin-top:3px;position:relative;}
+.credits-divider{height:1px;margin:14px 0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.1),transparent);}
+.credits-role{font-size:10px;color:#616b80;text-transform:uppercase;
+  letter-spacing:0.8px;font-weight:700;margin-top:8px;}
+.credits-name{font-size:14px;color:#eef1f7;font-weight:800;margin-top:3px;
+  letter-spacing:-0.02em;}
+.credits-list{list-style:none;text-align:left;font-size:11px;color:#9aa4b8;
+  line-height:1.7;margin-top:4px;}
+.credits-list li{display:flex;justify-content:space-between;gap:12px;padding:2px 0;}
+.credits-list li span:last-child{color:#eef1f7;font-weight:600;}
+.credits-footer{font-size:10px;color:#616b80;margin-top:14px;
+  letter-spacing:0.3px;position:relative;}
+.credits-heart{color:#f87171;font-size:11px;}
