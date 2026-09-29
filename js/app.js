@@ -53,7 +53,7 @@ function updateStaticUI(){
     const rf=$('registerForm');const rLabels=rf.querySelectorAll('label');rLabels[0].textContent=t('email');$('regEmail').placeholder=t('ph_email');rLabels[1].textContent=t('password');$('regPassword').placeholder=t('ph_password_new');rLabels[2].textContent=t('username');$('regUsername').placeholder=t('ph_username');$('registerBtn').textContent=t('btn_register');}
   const ob=$('screen-onboarding');
   if(ob){ob.querySelector('.auth-title').textContent=t('create_profile');ob.querySelector('.auth-sub').textContent=t('create_profile_sub');const labels=ob.querySelectorAll('label');labels[0].textContent=t('choose_logo');labels[1].textContent=t('company_name_label');$('onboardCompany').placeholder=t('company_name_ph');$('onboardBtn').textContent=t('btn_start');}
-  const tabMap={buildings:'tab_buildings',storage:'tab_storage',exchange:'tab_exchange',profile:'tab_profile'};
+  const tabMap={buildings:'tab_buildings',storage:'tab_storage',exchange:'tab_exchange',search:'tab_search',chat:'tab_chat'};
   document.querySelectorAll('.tab').forEach(tabEl=>{const key=tabMap[tabEl.dataset.tab];if(key)tabEl.querySelector('.tab-label').textContent=t(key);});
 }
 
@@ -120,69 +120,29 @@ function hasInputs(bId){for(const it of Object.keys(BUILDINGS[bId].inputs)){if(i
 function addXP(n){profile.xp+=n;const nl=1+Math.floor(profile.xp/1500);if(nl>profile.level){profile.level=nl;toast('🎉 Lv '+nl+'!','good');checkLevelRewards();}}
 async function checkLevelRewards(){const claimed=(profile.level_rewards_claimed||'').split(',').filter(x=>x);for(const[lvlStr,reward]of Object.entries(LEVEL_REWARDS)){const lvl=parseInt(lvlStr);if(profile.level>=lvl&&!claimed.includes(lvlStr)){profile.cash+=reward;claimed.push(lvlStr);profile.level_rewards_claimed=claimed.join(',');await syncProfile();setTimeout(()=>{toast('🎁 '+t('levelup_reward')+' Lv '+lvl+': +'+money(reward),'good');},600);}}}
 
-/* ============================================================
-   EMERGENCY GRANT
-   ============================================================ */
-function canClaimEmergencyGrant(){
-  if(!profile) return false;
-  if(profile.cash >= 100) return false;
-  if(!profile.last_emergency_grant) return true;
-  const last = new Date(profile.last_emergency_grant).getTime();
-  const cooldown = 24 * 3600 * 1000;
-  return (Date.now() - last) > cooldown;
+/* EMERGENCY GRANT */
+function canClaimEmergencyGrant(){if(!profile)return false;if(profile.cash>=100)return false;if(!profile.last_emergency_grant)return true;const last=new Date(profile.last_emergency_grant).getTime();return (Date.now()-last)>24*3600*1000;}
+function getEmergencyCooldownRemaining(){if(!profile||!profile.last_emergency_grant)return 0;const last=new Date(profile.last_emergency_grant).getTime();const remain=24*3600*1000-(Date.now()-last);return remain>0?remain:0;}
+async function claimEmergencyGrant(){if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return toast(currentLang==='id'?`⏳ Tunggu ${hours} jam lagi`:`⏳ Wait ${hours}h more`,'info');}const amount=500;profile.cash+=amount;profile.last_emergency_grant=new Date().toISOString();await sb.from('profiles').update({cash:profile.cash,last_emergency_grant:profile.last_emergency_grant}).eq('id',user.id);await logTransaction('emergency_grant',null,0,amount,'Emergency grant');render();toast('🚨 +'+money(amount)+' '+(currentLang==='id'?'bantuan darurat':'emergency grant'),'good');}
+function renderEmergencyCard(){if(!profile)return '';if(profile.cash>=100)return '';if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Bantuan Darurat':'Emergency Grant'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Tersedia dalam':'Available in'} ${hours}j</div></div></div></div>`;}return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Uang Menipis!':'Low Cash!'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Klaim bantuan darurat $500 (sekali per 24 jam)':'Claim $500 emergency grant (once per 24h)'}</div></div></div><button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang==='id'?'Klaim $500':'Claim $500'}</button></div>`;}
+
+/* SEARCH + CHAT (placeholder) */
+function renderSearch(){
+  return `<div class="ex-empty">
+    <span class="big">🔍</span>
+    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('search_title')}</div>
+    <div style="font-size:11.5px;">${t('coming_soon_desc')}</div>
+  </div>`;
 }
-function getEmergencyCooldownRemaining(){
-  if(!profile || !profile.last_emergency_grant) return 0;
-  const last = new Date(profile.last_emergency_grant).getTime();
-  const cooldown = 24 * 3600 * 1000;
-  const remain = cooldown - (Date.now() - last);
-  return remain > 0 ? remain : 0;
-}
-async function claimEmergencyGrant(){
-  if(!canClaimEmergencyGrant()){
-    const remain = getEmergencyCooldownRemaining();
-    const hours = Math.ceil(remain / 3600000);
-    return toast(currentLang === 'id' ? `⏳ Tunggu ${hours} jam lagi` : `⏳ Wait ${hours}h more`, 'info');
-  }
-  const amount = 500;
-  profile.cash += amount;
-  profile.last_emergency_grant = new Date().toISOString();
-  await sb.from('profiles').update({cash: profile.cash, last_emergency_grant: profile.last_emergency_grant}).eq('id', user.id);
-  await logTransaction('emergency_grant', null, 0, amount, 'Emergency grant');
-  render();
-  toast('🚨 +' + money(amount) + ' ' + (currentLang === 'id' ? 'bantuan darurat' : 'emergency grant'), 'good');
-}
-function renderEmergencyCard(){
-  if(!profile) return '';
-  if(profile.cash >= 100) return '';
-  if(!canClaimEmergencyGrant()) {
-    const remain = getEmergencyCooldownRemaining();
-    const hours = Math.ceil(remain / 3600000);
-    return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <div style="font-size:22px;">🚨</div>
-        <div style="flex:1;">
-          <div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang === 'id' ? 'Bantuan Darurat' : 'Emergency Grant'}</div>
-          <div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang === 'id' ? 'Tersedia dalam' : 'Available in'} ${hours}j</div>
-        </div>
-      </div>
-    </div>`;
-  }
-  return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <div style="font-size:22px;">🚨</div>
-      <div style="flex:1;">
-        <div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang === 'id' ? 'Uang Menipis!' : 'Low Cash!'}</div>
-        <div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang === 'id' ? 'Klaim bantuan darurat $500 (sekali per 24 jam)' : 'Claim $500 emergency grant (once per 24h)'}</div>
-      </div>
-    </div>
-    <button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang === 'id' ? 'Klaim $500' : 'Claim $500'}</button>
+function renderChat(){
+  return `<div class="ex-empty">
+    <span class="big">💬</span>
+    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('chat_title')}</div>
+    <div style="font-size:11.5px;">${t('coming_soon_desc')}</div>
   </div>`;
 }
 
-/* ============================================================
-   BUILD — dengan konfirmasi & error handling
-   ============================================================ */
+/* BUILD — dengan konfirmasi & error handling */
 async function build(bId){
   const st=buildings[bId];
   if(st.level>0 || st.upgrading) return;
@@ -195,18 +155,10 @@ async function build(bId){
       : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nYou may struggle to build other buildings.\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
-  const oldCash = profile.cash;
-  const oldUpgrading = st.upgrading;
-  const oldEndsAt = st.upgradeEndsAt;
-  profile.cash-=c;
-  st.upgrading=true;
-  st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
+  const oldCash = profile.cash, oldUpgrading = st.upgrading, oldEndsAt = st.upgradeEndsAt;
+  profile.cash-=c; st.upgrading=true; st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
   try { await Promise.all([syncProfile(),syncBuilding(bId)]); }
-  catch(e) {
-    profile.cash = oldCash; st.upgrading = oldUpgrading; st.upgradeEndsAt = oldEndsAt;
-    console.error('BUILD ERROR:', e);
-    return toast('❌ Sync error: ' + e.message, 'bad');
-  }
+  catch(e) { profile.cash=oldCash; st.upgrading=oldUpgrading; st.upgradeEndsAt=oldEndsAt; console.error(e); return toast('❌ Sync error: '+e.message,'bad'); }
   await logTransaction('build', bId, 0, -c);
   await advanceTutorial(1);
   render();
@@ -215,7 +167,6 @@ async function build(bId){
   toast('🏗️ '+t(BUILDINGS[bId].nameKey)+' · '+sec+'s'+boostText,'info');
   scheduleUpgradeFinish(bId);
 }
-
 async function upgrade(bId){
   const st=buildings[bId];
   if(!st.level)return build(bId);
@@ -227,29 +178,20 @@ async function upgrade(bId){
   const remaining = profile.cash - c;
   if (remaining < 500) {
     const msg = currentLang === 'id'
-      ? `⚠️ Peringatan!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nLanjut?`
-      : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nContinue?`;
+      ? `⚠️ Peringatan!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} akan memakan $${nf.format(c)}.\n\nSisa uang: $${nf.format(remaining)}\n\nLanjut?`
+      : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining: $${nf.format(remaining)}\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
-  const oldCash = profile.cash;
-  const oldUpgrading = st.upgrading;
-  const oldEndsAt = st.upgradeEndsAt;
-  profile.cash-=c;
-  st.upgrading=true;
-  st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
+  const oldCash = profile.cash, oldUpgrading = st.upgrading, oldEndsAt = st.upgradeEndsAt;
+  profile.cash-=c; st.upgrading=true; st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
   try { await Promise.all([syncProfile(),syncBuilding(bId)]); }
-  catch(e) {
-    profile.cash = oldCash; st.upgrading = oldUpgrading; st.upgradeEndsAt = oldEndsAt;
-    console.error('UPGRADE ERROR:', e);
-    return toast('❌ Sync error: ' + e.message, 'bad');
-  }
+  catch(e) { profile.cash=oldCash; st.upgrading=oldUpgrading; st.upgradeEndsAt=oldEndsAt; console.error(e); return toast('❌ Sync error: '+e.message,'bad'); }
   await logTransaction('upgrade', bId, 0, -c, 'Lv '+(st.level+1));
   render();
   const boostText=isBeginnerBoostActive()?' (🚀 2x)':'';
   toast(t('t_upgrade_started')+' ('+Math.floor(getUpgradeDurationMs(bId)/1000)+'s)'+boostText,'info');
   scheduleUpgradeFinish(bId);
 }
-
 function scheduleUpgradeFinish(bId){const st=buildings[bId];const remain=st.upgradeEndsAt-Date.now();if(remain<=0){finishUpgrade(bId);return;}clearTimeout(st._upTimer);st._upTimer=setTimeout(()=>finishUpgrade(bId),remain);}
 async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)return;const wasNewBuild=st.level===0;st.upgrading=false;st.upgradeEndsAt=0;st.level+=1;await syncBuilding(bId);render();if(wasNewBuild){toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');}else{toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');}}
 async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
@@ -310,94 +252,30 @@ function renderHistoryTab(){let html='<div class="section-title">'+t('history_ti
 function renderResearchTab(){if(Object.keys(research).length===0)return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';let html='<div class="section-title">'+t('research_title')+'</div>';html+='<div style="background:var(--surface-2);padding:12px;border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">'+t('research_intro')+'</div>';for(const itemId of RESEARCH_CONFIG.PILOT_ITEMS){const def=ITEMS[itemId];const r=research[itemId];const maxed=r.level>=RESEARCH_CONFIG.MAX_LEVEL;const cost=getResearchCost(r.level);const dur=Math.round(getResearchDuration(r.level)/1000);const canAfford=profile.cash>=cost;let statusText='';let btnHtml='';let progHtml='';if(maxed){statusText='<span class="status auto">'+t('research_max')+'</span>';btnHtml='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';}else if(r.researching){statusText='<span class="status busy">'+t('research_in_progress')+'</span>';btnHtml='<button class="btn btn-purple btn-sm" disabled>⏳ '+t('research_in_progress')+'</button>';progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';}else{statusText='<span class="status idle">'+t('status_ready')+'</span>';const dis=!canAfford?'disabled':'';btnHtml='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';}html+='<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+def.emoji+'</div><div class="b-info"><div class="b-name">'+t(def.nameKey)+'</div><div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div><div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div></div><div>'+statusText+'</div></div>'+progHtml+btnHtml+'</div>';}return html;}
 function renderComingSoon(){return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
-function render(){if(!profile)return;$('hdrLogo').textContent=profile.avatar||'🏭';$('hdrCompany').textContent=profile.company_name;$('hdrCash').textContent=money(profile.cash);$('hdrLevel').textContent=profile.level;const c=$('gameContent');if(currentTab==='buildings')c.innerHTML=renderBuildings();else if(currentTab==='storage')c.innerHTML=renderStorage();else if(currentTab==='exchange')c.innerHTML=renderExchange();else if(currentTab==='profile')c.innerHTML=renderProfile();cancelAnimationFrame(progressRaf);if(currentTab==='buildings')tickProgress();if(currentTab==='storage'&&storageSubTab==='research')tickResearchProgress();if(currentTab==='exchange')renderTicker();}
-function renderBuildings(){let html=renderBoostCard();html+=renderEmergencyCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr)html+=renderOneBuilding(bId,b);}return html;}
-
-function renderOneBuilding(bId,b){
-  const st=buildings[bId];
-  const built=st.level>0;
-  const maxed=st.level>=CONFIG.MAX_LEVEL;
-  const constructing = st.upgrading && st.level === 0;
-  const upgrading = st.upgrading && st.level > 0;
-  const bCost=buildCost(bId),uCost=upgradeCost(bId);
-  const outQty=built?getOutputQty(bId):b.output.qty;
-  const bName=t(b.nameKey),bDesc=t(b.descKey);
-  const inputsText=Object.entries(b.inputs).map(([itId])=>{const need=built?getInputQty(bId,itId):b.inputs[itId];const have=inventory[itId].qty,ok=have>=need;return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';}).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
-  let statusHtml='';
-  if(constructing)statusHtml='<span class="status busy">🏗️ Build</span>';
-  else if(!built)statusHtml='<span class="status locked">'+t('status_not_built')+'</span>';
-  else if(upgrading)statusHtml='<span class="status upgrading">'+t('status_upgrading')+'</span>';
-  else if(st.producing)statusHtml='<span class="status busy">'+t('status_producing')+'</span>';
-  else if(st.auto&&!hasInputs(bId))statusHtml='<span class="status busy">'+t('status_low_input')+'</span>';
-  else if(st.auto)statusHtml='<span class="status auto">'+t('status_auto')+'</span>';
-  else statusHtml='<span class="status idle">'+t('status_ready')+'</span>';
-  let btnHtml='';
-  if(constructing){
-    btnHtml='<button class="btn btn-outline" disabled>🏗️ '+t('status_upgrading')+'...</button>';
-  } else if(!built){
-    const dis=profile.cash<bCost?'disabled':'';
-    btnHtml='<button class="btn btn-primary" '+dis+' onclick="build(\''+bId+'\')">'+t('btn_build')+' · '+money(bCost)+'</button>';
-  } else {
-    const canUp=!maxed&&!st.upgrading&&!st.producing&&profile.cash>=uCost;
-    const canProd=hasInputs(bId)&&!st.producing&&!st.upgrading;
-    const btnUpTxt=upgrading?t('btn_upgrading'):(maxed?t('btn_max'):'⬆️ Lv '+st.level+'→'+(st.level+1)+' · '+money(uCost));
-    const btnUp='<button class="btn btn-purple btn-sm" '+(canUp?'':'disabled')+' onclick="upgrade(\''+bId+'\')">'+btnUpTxt+'</button>';
-    const btnProd='<button class="btn btn-green btn-sm" '+(canProd?'':'disabled')+' onclick="startProduction(\''+bId+'\')">'+(st.producing?t('btn_producing'):t('btn_produce'))+'</button>';
-    btnHtml='<div class="btn-row">'+btnUp+btnProd+'</div><div style="margin-top:8px;display:flex;justify-content:flex-end;"><button class="toggle '+(st.auto?'on':'')+'" onclick="toggleAuto(\''+bId+'\')"><div class="toggle-dot"></div>'+t('btn_auto')+'</button></div>';
-  }
-  let progHtml='';
-  if(constructing||upgrading){
-    progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-upbar="'+bId+'"></div></div><div class="prog-text" data-uptext="'+bId+'"></div></div>';
-  } else if(st.producing){
-    progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar" data-bar="'+bId+'"></div></div><div class="prog-text" data-text="'+bId+'"></div></div>';
-  }
-  return '<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+bName+' '+(built?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+bDesc+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b></div></div><div>'+statusHtml+'</div></div>'+progHtml+btnHtml+'</div>';
+function openProfile(){
+  currentTab='profile';
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  render();
 }
 
-function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}html+='</div>';if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;else for(const o of filteredMarket)html+=renderOrderRow(o,false);html+='</div>';return html;}
-function setFilter(f){marketFilter=f;render();}
-function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
-
-function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v9 · Emergency Grant</div>`;}
-async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
-function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
-async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
-async function deleteAccount(){if(!confirm('⚠️ Delete account?'))return;if(!confirm('Sure?'))return;try{await sb.from('profiles').delete().eq('id',user.id);await sb.from('inventory').delete().eq('user_id',user.id);await sb.from('buildings').delete().eq('user_id',user.id);await sb.from('research').delete().eq('user_id',user.id);await sb.from('market_orders').update({status:'cancelled'}).eq('seller_id',user.id);await sb.auth.signOut();user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};$('loginForm').reset();$('registerForm').reset();showScreen('auth');switchTab('login');}catch(e){toast('❌ '+e.message,'bad');}}
-function showLangPicker(){$('modalContainer').innerHTML=`<div class="modal-backdrop" id="langBackdrop" onclick="if(event.target.id==='langBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">🌐 ${t('p_language')}</div><div class="account-item" onclick="pickLang('id')" style="${currentLang==='id'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇮🇩</div><div class="account-label" style="font-size:15px;">Bahasa Indonesia</div>${currentLang==='id'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><div class="account-item" onclick="pickLang('en')" style="${currentLang==='en'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇬🇧</div><div class="account-label" style="font-size:15px;">English</div>${currentLang==='en'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><button class="btn btn-outline" style="margin-top:12px;" onclick="closeModal()">${t('sell_cancel')}</button></div></div>`;}
-function pickLang(lang){setLang(lang);closeModal();toast(lang==='id'?'🇮🇩 Bahasa Indonesia':'🇬🇧 English','good');}
-
-function tickProgress(){
-  let active=false;
-  for(const[bId,b]of Object.entries(BUILDINGS)){
-    const st=buildings[bId];
-    if(st.upgrading&&st.upgradeEndsAt){
-      active=true;
-      const total=getUpgradeDurationMs(bId);
-      const remain=Math.max(0,st.upgradeEndsAt-Date.now());
-      const pct=Math.min(100,100-(remain/total*100));
-      const bar=document.querySelector('[data-upbar="'+bId+'"]');
-      const txt=document.querySelector('[data-uptext="'+bId+'"]');
-      if(bar)bar.style.width=pct+'%';
-      if(txt){const label = st.level === 0 ? (currentLang==='id'?'Bangun: ':'Building: ') : (currentLang==='id'?'Upgrade: ':'Upgrading: ');txt.textContent=label+(remain/1000).toFixed(1)+'s';}
-      if(remain<=0)finishUpgrade(bId);
-    }
-    if(st.producing&&st.endsAt){
-      active=true;
-      const dur=getProductionDuration(bId);
-      const remain=Math.max(0,st.endsAt-Date.now());
-      const pct=Math.min(100,100-(remain/dur*100));
-      const bar=document.querySelector('[data-bar="'+bId+'"]');
-      const txt=document.querySelector('[data-text="'+bId+'"]');
-      if(bar)bar.style.width=pct+'%';
-      if(txt)txt.textContent=(currentLang==='id'?'Produksi: ':'Producing: ')+(remain/1000).toFixed(1)+'s';
-      if(remain<=0)finishProduction(bId);
-    }
-  }
-  if(active)progressRaf=requestAnimationFrame(tickProgress);
+function render(){
+  if(!profile)return;
+  $('hdrLogo').textContent=profile.avatar||'🏭';
+  $('hdrCompany').textContent=profile.company_name;
+  $('hdrCash').textContent=money(profile.cash);
+  $('hdrLevel').textContent=profile.level;
+  const hpa=$('hdrProfileAvatar');
+  if(hpa)hpa.textContent=profile.avatar||'🏭';
+  const c=$('gameContent');
+  if(currentTab==='buildings')c.innerHTML=renderBuildings();
+  else if(currentTab==='storage')c.innerHTML=renderStorage();
+  else if(currentTab==='exchange')c.innerHTML=renderExchange();
+  else if(currentTab==='profile')c.innerHTML=renderProfile();
+  else if(currentTab==='search')c.innerHTML=renderSearch();
+  else if(currentTab==='chat')c.innerHTML=renderChat();
+  cancelAnimationFrame(progressRaf);
+  if(currentTab==='buildings')tickProgress();
+  if(currentTab==='storage'&&storageSubTab==='research')tickResearchProgress();
+  if(currentTab==='exchange')renderTicker();
 }
-
-function tickResearchProgress(){let active=false;for(const itemId of Object.keys(research)){const r=research[itemId];if(!r.researching||!r.endsAt)continue;active=true;const total=getResearchDuration(r.level);const remain=Math.max(0,r.endsAt-Date.now());const pct=Math.min(100,100-(remain/total*100));const bar=document.querySelector('[data-research-bar="'+itemId+'"]');const txt=document.querySelector('[data-research-text="'+itemId+'"]');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=t('research_remains')+': '+(remain/1000).toFixed(1)+'s';if(remain<=0)finishResearch(itemId);}if(active)researchRaf=requestAnimationFrame(tickResearchProgress);}
-
-document.querySelectorAll('.tab').forEach(tabEl=>{tabEl.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));tabEl.classList.add('active');currentTab=tabEl.dataset.tab;if(currentTab==='storage'&&leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});}render();});});
-
-(async()=>{document.documentElement.lang=currentLang;updateStaticUI();showLoading('Loading...');const{data}=await sb.auth.getSession();if(data.session){user=data.session.user;await enterGame();}else{hideLoading();showScreen('auth');}setInterval(recoverPrices,12000);})();
+function renderBuildings(){let html=renderBoostCard();html+=renderEmergencyCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for
