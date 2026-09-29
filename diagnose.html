@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Diagnose</title>
+<style>
+body{background:#e9eaec;font-family:-apple-system,sans-serif;padding:20px;max-width:500px;margin:0 auto;}
+h1{font-size:20px;margin-bottom:10px;}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+input{width:100%;padding:12px;margin-bottom:8px;border:1px solid #ccc;border-radius:8px;font-size:15px;box-sizing:border-box;}
+button{padding:12px;border:none;border-radius:8px;font-weight:700;background:#1e88e5;color:#fff;font-size:14px;cursor:pointer;width:100%;}
+button.green{background:#2e9e4f;}
+button.red{background:#e03e3e;}
+.log{background:#1a1c20;color:#a7f3c4;padding:12px;border-radius:8px;font-family:monospace;font-size:11px;white-space:pre-wrap;max-height:300px;overflow:auto;margin-top:12px;}
+.err{color:#fca5a5;}
+.ok{color:#a7f3c4;}
+.info{color:#93c5fd;}
+</style>
+</head>
+<body>
+<h1>🔍 Diagnose Catalyst</h1>
+
+<div class="card">
+  <div id="status" class="log">Memulai diagnosa...</div>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom:12px;font-size:14px;">Tes Register</h3>
+  <input id="email" type="email" placeholder="email">
+  <input id="password" type="password" placeholder="password (min 6)">
+  <input id="username" type="text" placeholder="username">
+  <button class="green" onclick="testRegister()">Test Register</button>
+  <button style="margin-top:8px;" onclick="testLogin()">Test Login</button>
+  <button class="red" style="margin-top:8px;" onclick="testLogout()">Logout</button>
+</div>
+
+<div class="card">
+  <h3 style="margin-bottom:12px;font-size:14px;">Cek Script Load</h3>
+  <button onclick="checkScripts()">Cek Semua File</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
+const KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
+
+const logEl = document.getElementById('status');
+function log(msg, cls){
+  const color = cls || 'ok';
+  const time = new Date().toLocaleTimeString('id-ID');
+  logEl.innerHTML = `<span class="info">[${time}]</span> <span class="${color}">${msg}</span>\n` + logEl.innerHTML;
+}
+
+let sb;
+try {
+  sb = window.supabase.createClient(URL, KEY);
+  log('✅ Supabase client berhasil dibuat', 'ok');
+} catch(e) {
+  log('❌ Gagal buat client: ' + e.message, 'err');
+}
+
+async function testRegister(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const username = document.getElementById('username').value.trim();
+  if(!email || !password || !username) return log('❌ Isi semua field', 'err');
+  if(password.length < 6) return log('❌ Password min 6', 'err');
+
+  log('⏳ Mencoba register...', 'info');
+  try {
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { username } }
+    });
+    if(error) return log('❌ REGISTER GAGAL: ' + error.message, 'err');
+    log('✅ Register berhasil! User ID: ' + data.user.id, 'ok');
+    log('   Email: ' + data.user.email, 'ok');
+    if(!data.session){
+      log('⚠️ Tapi tidak dapat session — kemungkinan email verification ON', 'err');
+      log('   Cek Supabase → Authentication → Providers → Email → Confirm email', 'err');
+    } else {
+      log('🎉 Session aktif! Coba tap LOGIN untuk cek profil', 'ok');
+    }
+  } catch(e) {
+    log('❌ EXCEPTION: ' + e.message, 'err');
+  }
+}
+
+async function testLogin(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if(!email || !password) return log('❌ Isi email & password', 'err');
+
+  log('⏳ Login...', 'info');
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if(error) return log('❌ LOGIN GAGAL: ' + error.message, 'err');
+    log('✅ Login berhasil! Email: ' + data.user.email, 'ok');
+
+    log('⏳ Ambil profil...', 'info');
+    const { data: prof, error: pErr } = await sb.from('profiles').select('*').eq('id', data.user.id).single();
+    if(pErr){
+      log('❌ PROFIL ERROR: ' + pErr.message, 'err');
+      log('   Cek tabel profiles di Supabase', 'err');
+      return;
+    }
+    log('✅ Profil OK:', 'ok');
+    log('   Username: ' + prof.username, 'ok');
+    log('   Company: ' + prof.company_name, 'ok');
+    log('   Cash: $' + prof.cash, 'ok');
+  } catch(e) {
+    log('❌ EXCEPTION: ' + e.message, 'err');
+  }
+}
+
+async function testLogout(){
+  await sb.auth.signOut();
+  log('🚪 Logout', 'info');
+}
+
+async function checkScripts(){
+  log('⏳ Cek file...', 'info');
+  const files = ['index.html', 'js/config.js', 'js/app.js', 'css/style.css'];
+  for(const f of files){
+    try {
+      const r = await fetch(f + '?t=' + Date.now(), { method: 'HEAD' });
+      if(r.ok) log('✅ ' + f + ' — OK', 'ok');
+      else log('❌ ' + f + ' — ' + r.status, 'err');
+    } catch(e) {
+      log('❌ ' + f + ' — ' + e.message, 'err');
+    }
+  }
+}
+</script>
+</body>
+</html>
