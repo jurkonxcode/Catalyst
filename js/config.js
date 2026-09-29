@@ -14,20 +14,29 @@ const CONFIG = {
 };
 
 /* ============================================================
-   ITEMS — nama diambil dari I18N (untuk multi-bahasa)
+   EXCHANGE CONFIG
    ============================================================ */
-const ITEMS = {
-  water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',       basePrice:1 },
-  wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',       basePrice:5 },
-  coal:        { nameKey:'item_coal',        emoji:'⚫', categoryKey:'cat_raw',       basePrice:6 },
-  electricity: { nameKey:'item_electricity', emoji:'⚡', categoryKey:'cat_energy',    basePrice:4 },
-  flour:       { nameKey:'item_flour',       emoji:'🥣', categoryKey:'cat_product',   basePrice:15 },
-  bread:       { nameKey:'item_bread',       emoji:'🍞', categoryKey:'cat_product',   basePrice:40 },
-  cake:        { nameKey:'item_cake',        emoji:'🍰', categoryKey:'cat_product',   basePrice:80 },
+const EXCHANGE_CONFIG = {
+  MAX_SELL_ORDERS: 5,
+  MIN_PRICE: 0.01,
+  TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'],
 };
 
 /* ============================================================
-   BUILDINGS — nama diambil dari I18N
+   ITEMS
+   ============================================================ */
+const ITEMS = {
+  water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',     basePrice:1 },
+  wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',     basePrice:5 },
+  coal:        { nameKey:'item_coal',        emoji:'⚫', categoryKey:'cat_raw',     basePrice:6 },
+  electricity: { nameKey:'item_electricity', emoji:'⚡', categoryKey:'cat_energy',  basePrice:4 },
+  flour:       { nameKey:'item_flour',       emoji:'🥣', categoryKey:'cat_product', basePrice:15 },
+  bread:       { nameKey:'item_bread',       emoji:'🍞', categoryKey:'cat_product', basePrice:40 },
+  cake:        { nameKey:'item_cake',        emoji:'🍰', categoryKey:'cat_product', basePrice:80 },
+};
+
+/* ============================================================
+   BUILDINGS
    ============================================================ */
 const BUILDINGS = {
   waterPump: {
@@ -75,7 +84,7 @@ const BUILDINGS = {
 };
 
 /* ============================================================
-   I18N — Kamus 2 Bahasa
+   I18N — Indonesia
    ============================================================ */
 const I18N = {
   id: {
@@ -95,6 +104,7 @@ const I18N = {
     company_sub:'Simulasi Bisnis', lv:'Lv',
     /* Tabs */
     tab_buildings:'Bangunan', tab_storage:'Gudang', tab_market:'Pasar', tab_profile:'Profil',
+    tab_exchange:'Exchange',
     /* Status */
     status_not_built:'Belum', status_ready:'Siap', status_producing:'Produksi',
     status_upgrading:'Upgrade', status_auto:'Auto', status_low_input:'Kurang',
@@ -102,9 +112,8 @@ const I18N = {
     btn_build:'Bangun', btn_produce:'⚡ Produksi', btn_producing:'⏳...',
     btn_upgrading:'⏳ Upgrading...', btn_max:'✓ Max', btn_auto:'Auto',
     btn_sell:'Jual', btn_save_desc:'💾 Simpan Deskripsi',
-    /* Categories (building) */
+    /* Categories */
     cat_extraction:'EKSTRAKSI', cat_processing:'PENGOLAHAN', cat_manufacturing:'MANUFAKTUR',
-    /* Categories (item) */
     cat_raw:'Bahan Baku', cat_energy:'Energi', cat_product:'Produk',
     /* Items */
     item_water:'Air', item_wheat:'Gandum', item_coal:'Batu Bara',
@@ -117,14 +126,21 @@ const I18N = {
     b_mill:'Mill', b_mill_desc:'Menggiling gandum menjadi tepung.',
     b_bakery:'Bakery', b_bakery_desc:'Memanggang roti dari tepung & air.',
     b_cakeshop:'Cake Shop', b_cakeshop_desc:'Membuat kue premium dari tepung, listrik & air.',
-    /* Market */
+    /* Market (jual instan) */
     market_title:'Pasar', market_hint:'Tap untuk jual',
-    sell_modal_title:'Jual',
-    sell_qty:'Jumlah',
-    sell_max:'MAX',
-    sell_price_per:'Harga per unit',
-    sell_total:'Total pendapatan',
+    sell_modal_title:'Jual', sell_qty:'Jumlah', sell_max:'MAX',
+    sell_price_per:'Harga per unit', sell_total:'Total pendapatan',
     sell_confirm:'💰 Jual', sell_cancel:'Batal',
+    /* Exchange */
+    ex_create_order:'Pasang Order Jual',
+    ex_my_orders:'Order Saya',
+    ex_global_market:'Pasar Global',
+    ex_orders:'order',
+    ex_all:'Semua',
+    ex_empty:'Belum ada order. Pasang order jual untuk memulai!',
+    ex_buy:'Beli',
+    ex_you:'Kamu',
+    ex_loading:'Memuat harga pasar...',
     /* Profile */
     p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score',
     p_info:'Info Perusahaan',
@@ -152,6 +168,10 @@ const I18N = {
     t_welcome:'🎉 Selamat datang',
     t_building_done:'dibangun!',
   },
+
+  /* ============================================================
+     I18N — English
+     ============================================================ */
   en: {
     /* Auth */
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -169,6 +189,7 @@ const I18N = {
     company_sub:'Business Simulator', lv:'Lv',
     /* Tabs */
     tab_buildings:'Buildings', tab_storage:'Storage', tab_market:'Market', tab_profile:'Profile',
+    tab_exchange:'Exchange',
     /* Status */
     status_not_built:'Not Built', status_ready:'Ready', status_producing:'Producing',
     status_upgrading:'Upgrading', status_auto:'Auto', status_low_input:'Low Input',
@@ -176,9 +197,8 @@ const I18N = {
     btn_build:'Build', btn_produce:'⚡ Produce', btn_producing:'⏳...',
     btn_upgrading:'⏳ Upgrading...', btn_max:'✓ Max', btn_auto:'Auto',
     btn_sell:'Sell', btn_save_desc:'💾 Save Description',
-    /* Categories (building) */
+    /* Categories */
     cat_extraction:'EXTRACTION', cat_processing:'PROCESSING', cat_manufacturing:'MANUFACTURING',
-    /* Categories (item) */
     cat_raw:'Raw Materials', cat_energy:'Energy', cat_product:'Products',
     /* Items */
     item_water:'Water', item_wheat:'Wheat', item_coal:'Coal',
@@ -193,12 +213,19 @@ const I18N = {
     b_cakeshop:'Cake Shop', b_cakeshop_desc:'Makes premium cakes from flour, electricity & water.',
     /* Market */
     market_title:'Market', market_hint:'Tap to sell',
-    sell_modal_title:'Sell',
-    sell_qty:'Quantity',
-    sell_max:'MAX',
-    sell_price_per:'Price per unit',
-    sell_total:'Total revenue',
+    sell_modal_title:'Sell', sell_qty:'Quantity', sell_max:'MAX',
+    sell_price_per:'Price per unit', sell_total:'Total revenue',
     sell_confirm:'💰 Sell', sell_cancel:'Cancel',
+    /* Exchange */
+    ex_create_order:'Create Sell Order',
+    ex_my_orders:'My Orders',
+    ex_global_market:'Global Market',
+    ex_orders:'orders',
+    ex_all:'All',
+    ex_empty:'No orders yet. Post a sell order to start!',
+    ex_buy:'Buy',
+    ex_you:'You',
+    ex_loading:'Loading market prices...',
     /* Profile */
     p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score',
     p_info:'Company Info',
@@ -229,7 +256,7 @@ const I18N = {
 };
 
 /* ============================================================
-   LANGUAGE DETECTION
+   LANGUAGE
    ============================================================ */
 let currentLang = (() => {
   const saved = localStorage.getItem('jc_lang');
@@ -246,14 +273,6 @@ function setLang(lang){
   currentLang = lang;
   localStorage.setItem('jc_lang', lang);
   document.documentElement.lang = lang;
-  updateStaticUI();
-  if (profile) render();
+  if (typeof updateStaticUI === 'function') updateStaticUI();
+  if (typeof profile !== 'undefined' && profile && typeof render === 'function') render();
 }
-/* ============================================================
-   EXCHANGE CONFIG
-   ============================================================ */
-const EXCHANGE_CONFIG = {
-  MAX_SELL_ORDERS: 5,     // Maksimal order aktif per pemain
-  MIN_PRICE: 0.01,
-  TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'],
-};
