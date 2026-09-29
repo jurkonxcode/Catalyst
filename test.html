@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#070a10">
+<title>JurkonCompanies — Tes Koneksi</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#070a10;
+    background-image:radial-gradient(ellipse at top,#0f1520 0%,#070a10 60%);
+    color:#eef1f7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:24px 20px;max-width:480px;margin:0 auto;min-height:100vh;
+    -webkit-font-smoothing:antialiased;}
+  .logo{width:56px;height:56px;border-radius:16px;
+    background:linear-gradient(135deg,#60a5fa,#4ade80);
+    display:flex;align-items:center;justify-content:center;
+    font-size:30px;margin-bottom:14px;
+    box-shadow:0 8px 24px rgba(96,165,250,0.3),inset 0 1px 0 rgba(255,255,255,0.2);}
+  h1{font-size:22px;font-weight:800;letter-spacing:-0.03em;margin-bottom:6px;}
+  p.sub{font-size:13px;color:#9aa4b8;margin-bottom:24px;line-height:1.5;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11px;font-weight:700;color:#616b80;
+    text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
+  input{width:100%;padding:14px;background:#0f141d;
+    border:1px solid rgba(255,255,255,0.08);border-radius:12px;
+    color:#eef1f7;font-size:14px;font-family:inherit;
+    transition:border-color 0.15s,box-shadow 0.15s;
+    -webkit-appearance:none;}
+  input:focus{outline:none;border-color:rgba(96,165,250,0.5);
+    box-shadow:0 0 0 3px rgba(96,165,250,0.12);}
+  input::placeholder{color:#3d4658;}
+  button{width:100%;padding:14px;border:none;border-radius:12px;
+    font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
+    margin-top:6px;letter-spacing:-0.01em;
+    transition:transform 0.12s cubic-bezier(0.34,1.56,0.64,1),opacity 0.15s;
+    box-shadow:0 4px 14px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.15);}
+  button:active{transform:scale(0.97);}
+  button.blue{background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;}
+  button.green{background:linear-gradient(135deg,#4ade80,#22c55e);color:#0a0c10;}
+  button.red{background:linear-gradient(135deg,#f87171,#dc2626);color:#fff;}
+  .log-box{margin-top:20px;background:#0f141d;
+    border:1px solid rgba(255,255,255,0.06);border-radius:14px;
+    padding:14px;font-size:11.5px;font-family:'SF Mono',Menlo,Monaco,monospace;
+    white-space:pre-wrap;word-break:break-word;
+    max-height:340px;overflow-y:auto;color:#a7f3c4;
+    line-height:1.6;min-height:80px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);}
+  .log-box .err{color:#fca5a5;}
+  .log-box .info{color:#93c5fd;}
+  .log-box .ok{color:#a7f3c4;}
+  .log-box .warn{color:#fde68a;}
+</style>
+</head>
+<body>
+
+<div class="logo">🏭</div>
+<h1>JurkonCompanies</h1>
+<p class="sub">Tes koneksi ke server. Isi form, tap <b>Daftar</b>, lalu <b>Login</b>.</p>
+
+<div class="field">
+  <label>Email</label>
+  <input id="email" type="email" placeholder="nama@email.com" autocomplete="email">
+</div>
+
+<div class="field">
+  <label>Password</label>
+  <input id="password" type="password" placeholder="min. 6 karakter" autocomplete="new-password">
+</div>
+
+<div class="field">
+  <label>Username</label>
+  <input id="username" type="text" placeholder="huruf/angka, tanpa spasi" autocomplete="username">
+</div>
+
+<button class="blue" onclick="doSignup()">📝 Daftar Akun Baru</button>
+<button class="green" onclick="doLogin()">🔐 Login</button>
+<button class="red" onclick="doLogout()">🚪 Logout</button>
+
+<div class="log-box" id="log">Menunggu aksi...</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// ============================================================
+//  🔧 KUNCI SUPABASE (sudah diisi otomatis)
+// ============================================================
+const SUPABASE_URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
+// ============================================================
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const logEl = document.getElementById('log');
+
+function log(msg, type='') {
+  const time = new Date().toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const span = type ? `<span class="${type}">${msg}</span>` : msg;
+  logEl.innerHTML = `[${time}] ${span}\n` + logEl.innerHTML;
+}
+
+async function doSignup(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const username = document.getElementById('username').value.trim();
+
+  if(!email || !password || !username){
+    return log('❌ Isi semua field dulu.', 'err');
+  }
+  if(password.length < 6){
+    return log('❌ Password minimal 6 karakter.', 'err');
+  }
+  if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)){
+    return log('❌ Username: 3-20 karakter, hanya huruf/angka/underscore.', 'err');
+  }
+
+  log('⏳ Mendaftar akun...', 'info');
+  const { data, error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { username } }
+  });
+
+  if(error) return log('❌ Gagal: ' + error.message, 'err');
+  log('✅ Daftar berhasil!', 'ok');
+  log('User ID: ' + (data.user?.id || '-'), 'info');
+  log('➡️ Sekarang tap tombol "Login".', 'info');
+}
+
+async function doLogin(){
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if(!email || !password) return log('❌ Isi email dan password.', 'err');
+
+  log('⏳ Login...', 'info');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  if(error) return log('❌ Login gagal: ' + error.message, 'err');
+  log('✅ Login sukses!', 'ok');
+  log('Email: ' + data.user.email, 'info');
+
+  log('⏳ Mengambil profil...', 'info');
+  const { data: profile, error: pErr } = await sb
+    .from('profiles')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+
+  if(pErr){
+    log('⚠️ Profil error: ' + pErr.message, 'warn');
+    return;
+  }
+
+  log('');
+  log('📋 PROFIL KAMU:', 'ok');
+  log('   Username   : ' + profile.username, 'ok');
+  log('   Perusahaan : ' + profile.company_name, 'ok');
+  log('   Cash       : $' + profile.cash, 'ok');
+  log('   Level      : ' + profile.level, 'ok');
+  log('');
+  log('🎉 KONEKSI JURKONCOMPANIES BERHASIL! 🎉', 'ok');
+  log('Screenshot ini dan kirim ke aku.', 'info');
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  log('🚪 Logout berhasil.', 'info');
+}
+
+(async () => {
+  log('🔍 Cek session...', 'info');
+  const { data, error } = await sb.auth.getSession();
+  if(error) return log('❌ ' + error.message, 'err');
+  if(data.session){
+    log('👤 Sudah login: ' + data.session.user.email, 'ok');
+  } else {
+    log('👋 Belum login. Isi form lalu tap "Daftar".', 'info');
+  }
+})();
+</script>
+</body>
+</html>
