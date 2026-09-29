@@ -278,4 +278,110 @@ function render(){
   if(currentTab==='storage'&&storageSubTab==='research')tickResearchProgress();
   if(currentTab==='exchange')renderTicker();
 }
-function renderBuildings(){let html=renderBoostCard();html+=renderEmergencyCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for
+function renderBuildings(){let html=renderBoostCard();html+=renderEmergencyCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr)html+=renderOneBuilding(bId,b);}return html;}
+
+function renderOneBuilding(bId,b){
+  const st=buildings[bId];
+  const built=st.level>0;
+  const maxed=st.level>=CONFIG.MAX_LEVEL;
+  const constructing = st.upgrading && st.level === 0;
+  const upgrading = st.upgrading && st.level > 0;
+  const bCost=buildCost(bId),uCost=upgradeCost(bId);
+  const outQty=built?getOutputQty(bId):b.output.qty;
+  const bName=t(b.nameKey),bDesc=t(b.descKey);
+  const inputsText=Object.entries(b.inputs).map(([itId])=>{const need=built?getInputQty(bId,itId):b.inputs[itId];const have=inventory[itId].qty,ok=have>=need;return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';}).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
+  let statusHtml='';
+  if(constructing)statusHtml='<span class="status busy">🏗️ Build</span>';
+  else if(!built)statusHtml='<span class="status locked">'+t('status_not_built')+'</span>';
+  else if(upgrading)statusHtml='<span class="status upgrading">'+t('status_upgrading')+'</span>';
+  else if(st.producing)statusHtml='<span class="status busy">'+t('status_producing')+'</span>';
+  else if(st.auto&&!hasInputs(bId))statusHtml='<span class="status busy">'+t('status_low_input')+'</span>';
+  else if(st.auto)statusHtml='<span class="status auto">'+t('status_auto')+'</span>';
+  else statusHtml='<span class="status idle">'+t('status_ready')+'</span>';
+  let btnHtml='';
+  if(constructing){
+    btnHtml='<button class="btn btn-outline" disabled>🏗️ '+t('status_upgrading')+'...</button>';
+  } else if(!built){
+    const dis=profile.cash<bCost?'disabled':'';
+    btnHtml='<button class="btn btn-primary" '+dis+' onclick="build(\''+bId+'\')">'+t('btn_build')+' · '+money(bCost)+'</button>';
+  } else {
+    const canUp=!maxed&&!st.upgrading&&!st.producing&&profile.cash>=uCost;
+    const canProd=hasInputs(bId)&&!st.producing&&!st.upgrading;
+    const btnUpTxt=upgrading?t('btn_upgrading'):(maxed?t('btn_max'):'⬆️ Lv '+st.level+'→'+(st.level+1)+' · '+money(uCost));
+    const btnUp='<button class="btn btn-purple btn-sm" '+(canUp?'':'disabled')+' onclick="upgrade(\''+bId+'\')">'+btnUpTxt+'</button>';
+    const btnProd='<button class="btn btn-green btn-sm" '+(canProd?'':'disabled')+' onclick="startProduction(\''+bId+'\')">'+(st.producing?t('btn_producing'):t('btn_produce'))+'</button>';
+    btnHtml='<div class="btn-row">'+btnUp+btnProd+'</div><div style="margin-top:8px;display:flex;justify-content:flex-end;"><button class="toggle '+(st.auto?'on':'')+'" onclick="toggleAuto(\''+bId+'\')"><div class="toggle-dot"></div>'+t('btn_auto')+'</button></div>';
+  }
+  let progHtml='';
+  if(constructing||upgrading){
+    progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-upbar="'+bId+'"></div></div><div class="prog-text" data-uptext="'+bId+'"></div></div>';
+  } else if(st.producing){
+    progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar" data-bar="'+bId+'"></div></div><div class="prog-text" data-text="'+bId+'"></div></div>';
+  }
+  return '<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+bName+' '+(built?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+bDesc+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b></div></div><div>'+statusHtml+'</div></div>'+progHtml+btnHtml+'</div>';
+}
+
+function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}html+='</div>';if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;else for(const o of filteredMarket)html+=renderOrderRow(o,false);html+='</div>';return html;}
+function setFilter(f){marketFilter=f;render();}
+function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
+
+function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v10 · Search & Chat</div>`;}
+async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
+function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
+async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
+async function deleteAccount(){if(!confirm('⚠️ Delete account?'))return;if(!confirm('Sure?'))return;try{await sb.from('profiles').delete().eq('id',user.id);await sb.from('inventory').delete().eq('user_id',user.id);await sb.from('buildings').delete().eq('user_id',user.id);await sb.from('research').delete().eq('user_id',user.id);await sb.from('market_orders').update({status:'cancelled'}).eq('seller_id',user.id);await sb.auth.signOut();user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};$('loginForm').reset();$('registerForm').reset();showScreen('auth');switchTab('login');}catch(e){toast('❌ '+e.message,'bad');}}
+function showLangPicker(){$('modalContainer').innerHTML=`<div class="modal-backdrop" id="langBackdrop" onclick="if(event.target.id==='langBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">🌐 ${t('p_language')}</div><div class="account-item" onclick="pickLang('id')" style="${currentLang==='id'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇮🇩</div><div class="account-label" style="font-size:15px;">Bahasa Indonesia</div>${currentLang==='id'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><div class="account-item" onclick="pickLang('en')" style="${currentLang==='en'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇬🇧</div><div class="account-label" style="font-size:15px;">English</div>${currentLang==='en'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><button class="btn btn-outline" style="margin-top:12px;" onclick="closeModal()">${t('sell_cancel')}</button></div></div>`;}
+function pickLang(lang){setLang(lang);closeModal();toast(lang==='id'?'🇮🇩 Bahasa Indonesia':'🇬🇧 English','good');}
+
+function tickProgress(){
+  let active=false;
+  for(const[bId,b]of Object.entries(BUILDINGS)){
+    const st=buildings[bId];
+    if(st.upgrading&&st.upgradeEndsAt){
+      active=true;
+      const total=getUpgradeDurationMs(bId);
+      const remain=Math.max(0,st.upgradeEndsAt-Date.now());
+      const pct=Math.min(100,100-(remain/total*100));
+      const bar=document.querySelector('[data-upbar="'+bId+'"]');
+      const txt=document.querySelector('[data-uptext="'+bId+'"]');
+      if(bar)bar.style.width=pct+'%';
+      if(txt){const label = st.level === 0 ? (currentLang==='id'?'Bangun: ':'Building: ') : (currentLang==='id'?'Upgrade: ':'Upgrading: ');txt.textContent=label+(remain/1000).toFixed(1)+'s';}
+      if(remain<=0)finishUpgrade(bId);
+    }
+    if(st.producing&&st.endsAt){
+      active=true;
+      const dur=getProductionDuration(bId);
+      const remain=Math.max(0,st.endsAt-Date.now());
+      const pct=Math.min(100,100-(remain/dur*100));
+      const bar=document.querySelector('[data-bar="'+bId+'"]');
+      const txt=document.querySelector('[data-text="'+bId+'"]');
+      if(bar)bar.style.width=pct+'%';
+      if(txt)txt.textContent=(currentLang==='id'?'Produksi: ':'Producing: ')+(remain/1000).toFixed(1)+'s';
+      if(remain<=0)finishProduction(bId);
+    }
+  }
+  if(active)progressRaf=requestAnimationFrame(tickProgress);
+}
+function tickResearchProgress(){let active=false;for(const itemId of Object.keys(research)){const r=research[itemId];if(!r.researching||!r.endsAt)continue;active=true;const total=getResearchDuration(r.level);const remain=Math.max(0,r.endsAt-Date.now());const pct=Math.min(100,100-(remain/total*100));const bar=document.querySelector('[data-research-bar="'+itemId+'"]');const txt=document.querySelector('[data-research-text="'+itemId+'"]');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=t('research_remains')+': '+(remain/1000).toFixed(1)+'s';if(remain<=0)finishResearch(itemId);}if(active)researchRaf=requestAnimationFrame(tickResearchProgress);}
+
+document.querySelectorAll('.tab').forEach(tabEl=>{
+  tabEl.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    tabEl.classList.add('active');
+    currentTab=tabEl.dataset.tab;
+    if(currentTab==='storage'&&leaderboardData===null){
+      loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});
+    }
+    render();
+  });
+});
+
+(async()=>{
+  document.documentElement.lang=currentLang;
+  updateStaticUI();
+  showLoading('Loading...');
+  const{data}=await sb.auth.getSession();
+  if(data.session){user=data.session.user;await enterGame();}
+  else{hideLoading();showScreen('auth');}
+  setInterval(recoverPrices,12000);
+})();
