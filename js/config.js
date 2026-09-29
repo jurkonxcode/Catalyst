@@ -23,9 +23,6 @@ function getResearchDuration(currentLevel) {
   return Math.floor(RESEARCH_CONFIG.baseDuration * Math.pow(2, currentLevel));
 }
 
-/* ============================================================
-   TUTORIAL + LEVEL REWARDS + BEGINNER BOOST
-   ============================================================ */
 const BEGINNER_BOOST_HOURS = 24;
 const BEGINNER_BOOST_MULT = 2;
 
@@ -38,9 +35,7 @@ const TUTORIAL_STEPS = [
   { id:6, icon:'💵', reward:500, stepKey:'tut_step_6' },
 ];
 
-const LEVEL_REWARDS = {
-  2: 500, 3: 1000, 4: 2000, 5: 3000, 6: 5000, 7: 8000,
-};
+const LEVEL_REWARDS = { 2: 500, 3: 1000, 4: 2000, 5: 3000, 6: 5000, 7: 8000 };
 
 const ITEMS = {
   water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',     basePrice:1 },
@@ -72,7 +67,9 @@ const I18N = {
     choose_logo:'Pilih Logo', company_name_label:'Nama Perusahaan', company_name_ph:'cth: PT Cahaya Energi',
     btn_start:'🚀 Mulai Bermain', msg_saving:'⏳ Menyimpan...', msg_creating_company:'Membuat perusahaan...',
     company_sub:'Simulasi Bisnis', lv:'Lv',
-    tab_buildings:'Bangunan', tab_storage:'Gudang', tab_market:'Pasar', tab_profile:'Profil', tab_exchange:'Exchange',
+    tab_buildings:'Bangunan', tab_storage:'Gudang', tab_market:'Pasar', tab_profile:'Profil',
+    tab_exchange:'Exchange', tab_search:'Cari', tab_chat:'Chat',
+    search_title:'Cari Pemain', chat_title:'Chat Pemain',
     status_not_built:'Belum', status_ready:'Siap', status_producing:'Produksi', status_upgrading:'Upgrade', status_auto:'Auto', status_low_input:'Kurang',
     btn_build:'Bangun', btn_produce:'⚡ Produksi', btn_producing:'⏳...', btn_upgrading:'⏳ Upgrading...',
     btn_max:'✓ Max', btn_auto:'Auto', btn_sell:'Jual', btn_save_desc:'💾 Simpan Deskripsi',
@@ -116,37 +113,26 @@ const I18N = {
     history_in:'Masuk', history_out:'Keluar',
     tx_build:'Bangun', tx_upgrade:'Upgrade', tx_produce:'Produksi',
     tx_sell_instant:'Jual Instan', tx_sell_order:'Pasang Order',
-    tx_buy_order:'Beli Order', tx_cancel_order:'Batal Order',
+    tx_buy_order:'Beli Order', tx_cancel_order:'Batal Order', tx_emergency_grant:'Bantuan Darurat',
     research_title:'Riset Teknologi',
     research_empty:'Belum ada riset. Mulai naikkan bintang barangmu!',
     research_intro:'Naikkan kualitas barang untuk jual lebih mahal di Exchange.',
     research_star_level:'Level Bintang',
-    research_current:'Bintang saat ini',
-    research_next:'Bintang berikutnya',
+    research_current:'Bintang saat ini', research_next:'Bintang berikutnya',
     research_cost:'Biaya', research_time:'Waktu',
     research_start:'🔬 Mulai Riset', research_starting:'⏳ Memulai...',
     research_in_progress:'Sedang diriset...', research_done:'🎉 Riset selesai!',
     research_max:'✓ Level Maksimal', research_seconds:'detik',
     research_completed:'Selesai', research_remains:'Tersisa',
-    /* Tutorial */
-    tutorial_title:'Tutorial Pemula',
-    tutorial_skip:'Lewati',
-    tutorial_progress:'Progress',
-    tutorial_total_reward:'Hadiah total',
-    tutorial_done:'🎓 Tutorial selesai! Selamat!',
-    tutorial_skipped:'Tutorial dilewati',
-    tut_step_1:'Bangun bangunan pertama',
-    tut_step_2:'Selesaikan 1 produksi',
-    tut_step_3:'Jual barang instan',
-    tut_step_4:'Pasang order di Exchange',
-    tut_step_5:'Beli dari pemain lain',
-    tut_step_6:'Capai $5.000 kas',
+    tutorial_title:'Tutorial Pemula', tutorial_skip:'Lewati',
+    tutorial_progress:'Progress', tutorial_total_reward:'Hadiah total',
+    tutorial_done:'🎓 Tutorial selesai! Selamat!', tutorial_skipped:'Tutorial dilewati',
+    tut_step_1:'Bangun bangunan pertama', tut_step_2:'Selesaikan 1 produksi',
+    tut_step_3:'Jual barang instan', tut_step_4:'Pasang order di Exchange',
+    tut_step_5:'Beli dari pemain lain', tut_step_6:'Capai $5.000 kas',
     levelup_reward:'🎁 Bonus Level',
-    /* Beginner Boost */
-    boost_active:'Beginner Boost Aktif',
-    boost_desc:'Produksi & upgrade 2x lebih cepat',
-    boost_remains:'Tersisa',
-    boost_expired:'Boost berakhir',
+    boost_active:'Beginner Boost Aktif', boost_desc:'Produksi & upgrade 2x lebih cepat',
+    boost_remains:'Tersisa', boost_expired:'Boost berakhir',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -157,7 +143,9 @@ const I18N = {
     choose_logo:'Choose Logo', company_name_label:'Company Name', company_name_ph:'e.g: Alpha Industries',
     btn_start:'🚀 Start Playing', msg_saving:'⏳ Saving...', msg_creating_company:'Creating company...',
     company_sub:'Business Simulator', lv:'Lv',
-    tab_buildings:'Buildings', tab_storage:'Storage', tab_market:'Market', tab_profile:'Profile', tab_exchange:'Exchange',
+    tab_buildings:'Buildings', tab_storage:'Storage', tab_market:'Market', tab_profile:'Profile',
+    tab_exchange:'Exchange', tab_search:'Search', tab_chat:'Chat',
+    search_title:'Find Players', chat_title:'Player Chat',
     status_not_built:'Not Built', status_ready:'Ready', status_producing:'Producing', status_upgrading:'Upgrading', status_auto:'Auto', status_low_input:'Low Input',
     btn_build:'Build', btn_produce:'⚡ Produce', btn_producing:'⏳...', btn_upgrading:'⏳ Upgrading...',
     btn_max:'✓ Max', btn_auto:'Auto', btn_sell:'Sell', btn_save_desc:'💾 Save Description',
@@ -201,7 +189,7 @@ const I18N = {
     history_in:'In', history_out:'Out',
     tx_build:'Build', tx_upgrade:'Upgrade', tx_produce:'Production',
     tx_sell_instant:'Instant Sell', tx_sell_order:'Post Order',
-    tx_buy_order:'Buy Order', tx_cancel_order:'Cancel Order',
+    tx_buy_order:'Buy Order', tx_cancel_order:'Cancel Order', tx_emergency_grant:'Emergency Grant',
     research_title:'Technology Research',
     research_empty:'No research yet. Start increasing item stars!',
     research_intro:'Increase item quality to sell at higher prices on Exchange.',
@@ -212,25 +200,15 @@ const I18N = {
     research_in_progress:'Researching...', research_done:'🎉 Research complete!',
     research_max:'✓ Max Level', research_seconds:'seconds',
     research_completed:'Completed', research_remains:'Remaining',
-    /* Tutorial */
-    tutorial_title:'Beginner Tutorial',
-    tutorial_skip:'Skip',
-    tutorial_progress:'Progress',
-    tutorial_total_reward:'Total reward',
-    tutorial_done:'🎓 Tutorial complete! Congratulations!',
-    tutorial_skipped:'Tutorial skipped',
-    tut_step_1:'Build your first building',
-    tut_step_2:'Complete 1 production',
-    tut_step_3:'Sell items instantly',
-    tut_step_4:'Post order on Exchange',
-    tut_step_5:'Buy from another player',
-    tut_step_6:'Reach $5,000 cash',
+    tutorial_title:'Beginner Tutorial', tutorial_skip:'Skip',
+    tutorial_progress:'Progress', tutorial_total_reward:'Total reward',
+    tutorial_done:'🎓 Tutorial complete! Congratulations!', tutorial_skipped:'Tutorial skipped',
+    tut_step_1:'Build your first building', tut_step_2:'Complete 1 production',
+    tut_step_3:'Sell items instantly', tut_step_4:'Post order on Exchange',
+    tut_step_5:'Buy from another player', tut_step_6:'Reach $5,000 cash',
     levelup_reward:'🎁 Level Bonus',
-    /* Beginner Boost */
-    boost_active:'Beginner Boost Active',
-    boost_desc:'Production & upgrade 2x faster',
-    boost_remains:'Remaining',
-    boost_expired:'Boost expired',
+    boost_active:'Beginner Boost Active', boost_desc:'Production & upgrade 2x faster',
+    boost_remains:'Remaining', boost_expired:'Boost expired',
   }
 };
 
