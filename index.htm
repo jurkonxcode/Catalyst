@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>BizSim — Simulasi Bisnis</title>
+<style>
+  :root {
+    --bg:        #0b0d12;
+    --card:      #161a22;
+    --card-2:    #1e232d;
+    --border:    #262c38;
+    --text:      #e7eaf0;
+    --muted:     #8b93a7;
+    --accent:    #38bdf8;
+    --accent-2:  #22c55e;
+    --gold:      #fbbf24;
+    --danger:    #ef4444;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior-y: contain;
+  }
+
+  body {
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 14px 14px 32px;
+  }
+
+  /* ---------- CARD ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 12px;
+  }
+
+  /* ---------- HEADER ---------- */
+  .header {
+    background: linear-gradient(160deg, #182031 0%, #141821 100%);
+    border-color: #2a3345;
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 4px;
+  }
+
+  .company {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+
+  .level-badge {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .cash {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--gold);
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- STATS ---------- */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .stat-row:last-of-type { border-bottom: none; }
+
+  .stat-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+
+  /* ---------- BUILDING ROW ---------- */
+  .building-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--card-2);
+    border-radius: 10px;
+    margin-bottom: 12px;
+  }
+
+  .building-name { font-weight: 600; font-size: 15px; }
+
+  .building-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #2a2f3a;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .building-status.owned {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent-2);
+  }
+
+  /* ---------- BUTTONS ---------- */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 14px 16px;
+    border: none;
+    border-radius: 11px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.08s ease, opacity 0.15s ease, background 0.15s ease;
+    color: #0b0d12;
+    margin-top: 8px;
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+
+  .btn-primary { background: var(--accent); }
+  .btn-accent  { background: var(--accent-2); }
+  .btn-gold    { background: var(--gold); }
+
+  .btn:disabled {
+    background: #2a2f3a;
+    color: #5b6478;
+    cursor: not-allowed;
+  }
+
+  .btn.done {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--accent-2);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 10px;
+    margin-top: 4px;
+  }
+
+  /* ---------- PROGRESS ---------- */
+  .progress-wrap { margin-top: 12px; }
+
+  .progress-track {
+    width: 100%;
+    height: 10px;
+    background: #222731;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #38bdf8, #22c55e);
+    border-radius: 999px;
+    transition: width 0.1s linear;
+  }
+
+  .progress-text {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- LOG ---------- */
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .log-item {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: var(--card-2);
+    border-radius: 8px;
+    border-left: 3px solid var(--border);
+    animation: fadeIn 0.25s ease;
+  }
+
+  .log-item:first-child { border-left-color: var(--accent); }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Scrollbar halus */
+  .log-list::-webkit-scrollbar { width: 4px; }
+  .log-list::-webkit-scrollbar-thumb {
+    background: #2a2f3a; border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ============ HEADER / DASHBOARD ============ -->
+  <div class="card header">
+    <div class="row">
+      <div>
+        <div class="label">Perusahaan</div>
+        <div class="company" id="companyName">PT Cahaya Energi</div>
+      </div>
+      <div class="level-badge">Lv <span id="levelEl">1</span></div>
+    </div>
+    <div style="margin-top:14px">
+      <div class="label">Uang Kas</div>
+      <div class="cash" id="cashEl">$10,000</div>
+    </div>
+  </div>
+
+  <!-- ============ GUDANG / INVENTORY ============ -->
+  <div class="card">
+    <div class="card-title">📦 Gudang</div>
+    <div class="stat-row">
+      <span class="muted">Listrik</span>
+      <span class="stat-value"><span id="electricityEl">0</span> unit</span>
+    </div>
+  </div>
+
+  <!-- ============ BANGUNAN ============ -->
+  <div class="card">
+    <div class="card-title">🏭 Bangunan</div>
+
+    <div class="building-row">
+      <div>
+        <div class="building-name">Pembangkit Listrik</div>
+        <div class="muted small">Menghasilkan 100 unit listrik per produksi</div>
+      </div>
+      <div class="building-status" id="ppStatusEl">Belum dibangun</div>
+    </div>
+
+    <button id="buildBtn" class="btn btn-primary">
+      Bangun Pembangkit Listrik — $2,000
+    </button>
+  </div>
+
+  <!-- ============ PRODUKSI ============ -->
+  <div class="card" id="productionCard" style="display:none;">
+    <div class="card-title">⚡ Produksi</div>
+    <button id="produceBtn" class="btn btn-accent">
+      Produksi Listrik (5 detik)
+    </button>
+
+    <div class="progress-wrap" id="progressWrap" style="display:none;">
+      <div class="progress-track">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text" id="progressText">5 detik</div>
+    </div>
+  </div>
+
+  <!-- ============ PASAR ============ -->
+  <div class="card">
+    <div class="card-title">💹 Pasar</div>
+    <div class="stat-row">
+      <span class="muted">Harga listrik</span>
+      <span class="stat-value">$5 / unit</span>
+    </div>
+    <button id="sellBtn" class="btn btn-gold" disabled>
+      Jual Semua Listrik
+    </button>
+  </div>
+
+  <!-- ============ LOG AKTIVITAS ============ -->
+  <div class="card">
+    <div class="card-title">📜 Aktivitas</div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <!-- ============ RESET ============ -->
+  <button id="resetBtn" class="btn btn-ghost">Reset Permainan</button>
+
+</div>
+
+<script>
+/* =========================================================
+   KONFIGURASI GAME
+   ========================================================= */
+const CONFIG = {
+  STARTING_CASH:        10000,
+  STARTING_COMPANY:     'PT Cahaya Energi',
+  POWER_PLANT_COST:     2000,
+  PRODUCTION_TIME_MS:   5000,   // 5 detik
+  PRODUCTION_YIELD:     100,    // unit listrik
+  ELECTRICITY_PRICE:    5,      // $ per unit
+  LEVEL_UP_THRESHOLD:   10000,  // total pendapatan per level
+  STORAGE_KEY:          'bizsim_state_v1'
+};
+
+/* =========================================================
+   STATE
+   ========================================================= */
+const DEFAULT_STATE = {
+  companyName:     CONFIG.STARTING_COMPANY,
+  cash:            CONFIG.STARTING_CASH,
+  level:           1,
+  totalEarned:     0,
+  hasPowerPlant:   false,
+  electricity:     0,
+  producing:       false,
+  productionEndsAt: null
+};
+
+let state = loadState();
+let productionTimer = null;
+let progressRaf = null;
+const logs = [];
+
+/* =========================================================
+   PERSISTENCE
+   ========================================================= */
+function loadState() {
+  try {
+    const raw = localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_STATE };
+    const parsed = JSON.parse(raw);
+    return { ...DEFAULT_STATE, ...parsed };
+  } catch (e) {
+    console.warn('Gagal load state, pakai default.', e);
+    return { ...DEFAULT_STATE };
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Gagal simpan state.', e);
+  }
+}
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+const nf = new Intl.NumberFormat('en-US');
+
+function money(n) {
+  return '$' + nf.format(Math.floor(n));
+}
+
+function $(id) { return document.getElementById(id); }
+
+function log(msg) {
+  logs.unshift(msg);
+  if (logs.length > 12) logs.pop();
+  renderLogs();
+}
+
+/* =========================================================
+   AKSI GAME
+   ========================================================= */
+
+// --- Bangun Pembangkit Listrik ---
+function buildPowerPlant() {
+  if (state.hasPowerPlant) return;
+
+  if (state.cash < CONFIG.POWER_PLANT_COST) {
+    log('❌ Uang kas tidak cukup untuk membangun Pembangkit Listrik.');
+    return;
+  }
+
+  state.cash -= CONFIG.POWER_PLANT_COST;
+  state.hasPowerPlant = true;
+  saveState();
+  render();
+  log(`🏭 Pembangkit Listrik dibangun! -${money(CONFIG.POWER_PLANT_COST)}`);
+}
+
+// --- Mulai Produksi Listrik ---
+function startProduction() {
+  if (!state.hasPowerPlant || state.producing) return;
+
+  state.producing = true;
+  state.productionEndsAt = Date.now() + CONFIG.PRODUCTION_TIME_MS;
+  saveState();
+  render();
+  log('⚡ Mulai memproduksi listrik...');
+  scheduleProductionFinish();
+}
+
+function scheduleProductionFinish() {
+  clearTimeout(productionTimer);
+
+  const remaining = state.productionEndsAt - Date.now();
+
+  if (remaining <= 0) {
+    finishProduction();
+    return;
+  }
+
+  productionTimer = setTimeout(finishProduction, remaining);
+  cancelAnimationFrame(progressRaf);
+  tickProgress();
+}
+
+function tickProgress() {
+  if (!state.producing || !state.productionEndsAt) return;
+
+  const total = CONFIG.PRODUCTION_TIME_MS;
+  const remaining = Math.max(0, state.productionEndsAt - Date.now());
+  const elapsed = total - remaining;
+  const pct = Math.max(0, Math.min(100, (elapsed / total) * 100));
+
+  $('progressBar').style.width = pct + '%';
+  $('progressText').textContent = Math.ceil(remaining / 1000) + ' detik tersisa';
+
+  if (remaining > 0) {
+    progressRaf = requestAnimationFrame(tickProgress);
+  }
+}
+
+function finishProduction() {
+  if (!state.producing) return;
+
+  state.producing = false;
+  state.productionEndsAt = null;
+  state.electricity += CONFIG.PRODUCTION_YIELD;
+
+  saveState();
+  render();
+  log(`✅ Produksi selesai! +${CONFIG.PRODUCTION_YIELD} unit listrik.`);
+}
+
+// --- Jual Listrik ke Pasar ---
+function sellElectricity() {
+  const units = state.electricity;
+  if (units <= 0) return;
+
+  const revenue = units * CONFIG.ELECTRICITY_PRICE;
+
+  state.electricity = 0;
+  state.cash += revenue;
+  state.totalEarned += revenue;
+
+  recalcLevel();
+  saveState();
+  render();
+  log(`💰 Menjual ${units} unit listrik → +${money(revenue)}`);
+}
+
+function recalcLevel() {
+  const newLevel = 1 + Math.floor(state.totalEarned / CONFIG.LEVEL_UP_THRESHOLD);
+  if (newLevel > state.level) {
+    state.level = newLevel;
+    log(`🎉 Selamat! Naik ke Level ${newLevel}.`);
+  }
+}
+
+// --- Reset ---
+function resetGame() {
+  if (!confirm('Yakin ingin reset semua progres?')) return;
+
+  clearTimeout(productionTimer);
+  cancelAnimationFrame(progressRaf);
+
+  state = { ...DEFAULT_STATE };
+  logs.length = 0;
+  saveState();
+  render();
+  log('🔄 Permainan di-reset. Selamat datang kembali!');
+}
+
+/* =========================================================
+   RENDER
+   ========================================================= */
+function render() {
+  // Header
+  $('companyName').textContent = state.companyName;
+  $('levelEl').textContent     = state.level;
+  $('cashEl').textContent      = money(state.cash);
+
+  // Gudang
+  $('electricityEl').textContent = nf.format(state.electricity);
+
+  // --- Tombol Bangun ---
+  const buildBtn = $('buildBtn');
+  if (state.hasPowerPlant) {
+    buildBtn.textContent = '✓ Pembangkit Listrik Sudah Dibangun';
+    buildBtn.disabled = true;
+    buildBtn.classList.add('done');
+    buildBtn.classList.remove('btn-primary');
+    $('ppStatusEl').textContent = 'Aktif';
+    $('ppStatusEl').classList.add('owned');
+  } else {
+    buildBtn.textContent = `Bangun Pembangkit Listrik — ${money(CONFIG.POWER_PLANT_COST)}`;
+    buildBtn.disabled = state.cash < CONFIG.POWER_PLANT_COST;
+    buildBtn.classList.remove('done');
+    buildBtn.classList.add('btn-primary');
+    $('ppStatusEl').textContent = 'Belum dibangun';
+    $('ppStatusEl').classList.remove('owned');
+  }
+
+  // --- Section Produksi ---
+  $('productionCard').style.display = state.hasPowerPlant ? 'block' : 'none';
+
+  const produceBtn = $('produceBtn');
+  const progressWrap = $('progressWrap');
+
+  if (state.producing) {
+    produceBtn.disabled = true;
+    produceBtn.textContent = '⏳ Sedang Memproduksi...';
+    progressWrap.style.display = 'block';
+  } else {
+    produceBtn.disabled = false;
+    produceBtn.textContent = `Produksi Listrik (${CONFIG.PRODUCTION_TIME_MS / 1000} detik)`;
+    progressWrap.style.display = 'none';
+    $('progressBar').style.width = '0%';
+  }
+
+  // --- Tombol Jual ---
+  const sellBtn = $('sellBtn');
+  const units = state.electricity;
+  if (units > 0) {
+    sellBtn.disabled = false;
+    sellBtn.textContent = `Jual Semua — ${nf.format(units)} unit (${money(units * CONFIG.ELECTRICITY_PRICE)})`;
+  } else {
+    sellBtn.disabled = true;
+    sellBtn.textContent = 'Jual Semua Listrik';
+  }
+}
+
+function renderLogs() {
+  const el = $('logList');
+  if (logs.length === 0) {
+    el.innerHTML = '<div class="log-item muted">Selamat datang di BizSim! Bangun pembangkit listrik untuk memulai.</div>';
+    return;
+  }
+  el.innerHTML = logs.map(msg => `<div class="log-item">${msg}</div>`).join('');
+}
+
+/* =========================================================
+   RESUME PRODUKSI (jika halaman di-refresh saat produksi)
+   ========================================================= */
+function resumePendingProduction() {
+  if (state.producing && state.productionEndsAt) {
+    if (Date.now() >= state.productionEndsAt) {
+      finishProduction();
+    } else {
+      scheduleProductionFinish();
+    }
+  }
+}
+
+/* =========================================================
+   EVENT LISTENERS
+   ========================================================= */
+$('buildBtn').addEventListener('click', buildPowerPlant);
+$('produceBtn').addEventListener('click', startProduction);
+$('sellBtn').addEventListener('click', sellElectricity);
+$('resetBtn').addEventListener('click', resetGame);
+
+/* =========================================================
+   INIT
+   ========================================================= */
+render();
+renderLogs();
+resumePendingProduction();
+
+// Simpan sebelum tab ditutup (jaga-jaga)
+window.addEventListener('beforeunload', saveState);
+</script>
+</body>
+</html>
