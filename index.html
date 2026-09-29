@@ -6,266 +6,48 @@
 <meta name="theme-color" content="#070a10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>JurkonCompanies</title>
-<style>
-:root{
-  --bg:#070a10;--surface:#0f141d;--surface-2:#161c28;--surface-3:#1d2430;
-  --border:rgba(255,255,255,0.06);--border-hi:rgba(255,255,255,0.12);
-  --text:#eef1f7;--text-dim:#9aa4b8;--text-mute:#616b80;
-  --accent:#4ade80;--blue:#60a5fa;--purple:#a78bfa;--gold:#fbbf24;--red:#f87171;
-  --radius:16px;--ease-out:cubic-bezier(0.22,1,0.36,1);
-  --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
-}
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;overflow:hidden;}
-body{
-  background:var(--bg);
-  background-image:radial-gradient(ellipse at top,#0f1520 0%,#070a10 60%);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",Roboto,sans-serif;
-  -webkit-font-smoothing:antialiased;user-select:none;overscroll-behavior:none;
-  position:fixed;inset:0;letter-spacing:-0.01em;
-}
-button,input,select{font-family:inherit;}
-.screen{display:none;height:100vh;height:100dvh;}
-.screen.active{display:flex;flex-direction:column;}
-
-/* ==================== AUTH SCREEN ==================== */
-#screen-auth{padding:24px 20px;overflow-y:auto;
-  max-width:480px;margin:0 auto;width:100%;
-  padding-top:calc(env(safe-area-inset-top) + 40px);}
-.auth-logo{width:64px;height:64px;border-radius:18px;
-  background:linear-gradient(135deg,#60a5fa,#4ade80);
-  display:flex;align-items:center;justify-content:center;
-  font-size:34px;margin:0 auto 18px;
-  box-shadow:0 8px 32px rgba(96,165,250,0.35),inset 0 1px 0 rgba(255,255,255,0.2);}
-.auth-title{font-size:28px;font-weight:800;letter-spacing:-0.04em;text-align:center;margin-bottom:6px;}
-.auth-sub{font-size:13px;color:var(--text-dim);text-align:center;margin-bottom:28px;}
-.tabs{display:flex;background:var(--surface);border-radius:12px;padding:4px;margin-bottom:20px;border:1px solid var(--border);}
-.tab-btn{flex:1;padding:11px;background:none;border:none;color:var(--text-mute);
-  font-size:13px;font-weight:700;cursor:pointer;border-radius:9px;
-  transition:all 0.25s var(--ease-out);font-family:inherit;}
-.tab-btn.active{background:var(--surface-3);color:var(--text);box-shadow:0 1px 0 rgba(255,255,255,0.05) inset;}
-.field{margin-bottom:12px;}
-.field label{display:block;font-size:11px;font-weight:700;color:var(--text-mute);
-  text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;}
-.field input{width:100%;padding:14px;background:var(--surface);
-  border:1px solid var(--border);border-radius:12px;color:var(--text);
-  font-size:15px;font-family:inherit;transition:border-color 0.15s,box-shadow 0.15s;}
-.field input:focus{outline:none;border-color:rgba(96,165,250,0.5);
-  box-shadow:0 0 0 3px rgba(96,165,250,0.12);}
-.field input::placeholder{color:#3d4658;}
-.btn{width:100%;padding:14px;border:none;border-radius:12px;
-  font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;
-  transition:transform 0.12s var(--ease-spring),opacity 0.15s;
-  box-shadow:0 4px 14px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.15);
-  position:relative;overflow:hidden;}
-.btn:active:not(:disabled){transform:scale(0.97);}
-.btn-primary{background:linear-gradient(135deg,#60a5fa,#3b82f6);color:#fff;}
-.btn-green{background:linear-gradient(135deg,#4ade80,#22c55e);color:#0a0c10;}
-.btn-gold{background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#0a0c10;}
-.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border-hi);box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#f87171,#dc2626);color:#fff;}
-.btn:disabled{background:var(--surface-2)!important;color:var(--text-mute)!important;
-  box-shadow:none;cursor:not-allowed;filter:saturate(0.4);}
-.btn-sm{padding:10px;font-size:12px;border-radius:10px;}
-.btn-row{display:flex;gap:8px;}
-.msg{padding:12px 14px;border-radius:12px;font-size:13px;font-weight:600;
-  margin-bottom:14px;display:none;line-height:1.5;}
-.msg.show{display:block;animation:slideDown 0.3s var(--ease-out);}
-.msg.error{background:rgba(248,113,113,0.12);border:1px solid rgba(248,113,113,0.3);color:#fca5a5;}
-.msg.success{background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);color:#a7f3c4;}
-.msg.info{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.3);color:#93c5fd;}
-@keyframes slideDown{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:translateY(0);}}
-
-/* ==================== ONBOARDING ==================== */
-#screen-onboarding{padding:24px 20px;overflow-y:auto;
-  max-width:480px;margin:0 auto;width:100%;
-  padding-top:calc(env(safe-area-inset-top) + 40px);}
-.avatar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px;}
-.avatar-opt{aspect-ratio:1;border-radius:14px;background:var(--surface);
-  border:2px solid var(--border);display:flex;align-items:center;justify-content:center;
-  font-size:28px;cursor:pointer;transition:all 0.2s var(--ease-out);}
-.avatar-opt.selected{border-color:var(--blue);background:rgba(96,165,250,0.12);
-  transform:scale(1.05);box-shadow:0 4px 18px rgba(96,165,250,0.25);}
-
-/* ==================== GAME ==================== */
-#screen-game{max-width:520px;margin:0 auto;width:100%;height:100vh;height:100dvh;
-  padding-top:env(safe-area-inset-top);position:relative;overflow:hidden;}
-header{background:linear-gradient(180deg,rgba(15,20,29,0.95),rgba(15,20,29,0.75));
-  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-bottom:1px solid var(--border);padding:12px 16px;
-  display:flex;justify-content:space-between;align-items:center;gap:12px;
-  position:relative;z-index:5;}
-header::after{content:'';position:absolute;bottom:-1px;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(96,165,250,0.3),transparent);}
-.hdr-left{display:flex;align-items:center;gap:11px;min-width:0;}
-.logo{width:40px;height:40px;border-radius:12px;
-  background:linear-gradient(135deg,#60a5fa,#4ade80);
-  display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
-  box-shadow:0 4px 14px rgba(96,165,250,0.3),inset 0 1px 0 rgba(255,255,255,0.2);}
-.company-name{font-size:14px;font-weight:700;line-height:1.2;letter-spacing:-0.02em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
-.company-sub{font-size:10px;color:var(--text-mute);text-transform:uppercase;
-  letter-spacing:0.8px;font-weight:600;margin-top:1px;}
-.hdr-right{display:flex;flex-direction:column;gap:5px;align-items:flex-end;}
-.cash-box{background:linear-gradient(135deg,rgba(74,222,128,0.18),rgba(74,222,128,0.08));
-  border:1px solid rgba(74,222,128,0.35);color:#a7f3c4;font-weight:800;font-size:15px;
-  padding:6px 12px;border-radius:10px;font-variant-numeric:tabular-nums;
-  box-shadow:0 0 20px rgba(74,222,128,0.12),inset 0 1px 0 rgba(255,255,255,0.08);
-  min-width:100px;text-align:center;transition:transform 0.15s var(--ease-spring);}
-.cash-box.bump{transform:scale(1.08);}
-.lvl-box{background:rgba(96,165,250,0.12);border:1px solid rgba(96,165,250,0.28);
-  color:#93c5fd;font-weight:700;font-size:10px;padding:3px 9px;border-radius:7px;}
-.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 14px 100px;
-  -webkit-overflow-scrolling:touch;scrollbar-width:none;}
-.content::-webkit-scrollbar{display:none;}
-.card{background:linear-gradient(180deg,var(--surface),rgba(15,20,29,0.85));
-  border:1px solid var(--border);border-radius:var(--radius);padding:14px;
-  margin-bottom:10px;position:relative;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03),0 4px 16px rgba(0,0,0,0.25);
-  animation:cardIn 0.4s var(--ease-out) both;}
-@keyframes cardIn{from{opacity:0;transform:translateY(10px) scale(0.98);}to{opacity:1;transform:translateY(0) scale(1);}}
-.section-title{font-size:11px;font-weight:800;color:var(--text-mute);
-  text-transform:uppercase;letter-spacing:1.2px;margin:18px 2px 10px;
-  display:flex;justify-content:space-between;align-items:center;}
-.section-title:first-child{margin-top:2px;}
-.building-card{display:flex;flex-direction:column;gap:12px;}
-.b-row1{display:flex;gap:12px;align-items:flex-start;}
-.b-emoji{width:52px;height:52px;border-radius:14px;
-  background:linear-gradient(180deg,var(--surface-2),var(--surface-3));
-  border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
-  font-size:26px;flex-shrink:0;box-shadow:inset 0 1px 0 rgba(255,255,255,0.06),0 4px 10px rgba(0,0,0,0.3);}
-.b-info{flex:1;min-width:0;}
-.b-name{font-size:15px;font-weight:800;letter-spacing:-0.02em;
-  display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
-.b-desc{font-size:11.5px;color:var(--text-dim);margin-top:3px;line-height:1.45;}
-.b-recipe{font-size:11.5px;color:var(--text-dim);margin-top:8px;line-height:1.7;}
-.b-recipe b{color:var(--text);font-weight:700;}
-.lvl-badge{background:linear-gradient(135deg,rgba(167,139,250,0.2),rgba(167,139,250,0.08));
-  color:#c4b5fd;font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;
-  border:1px solid rgba(167,139,250,0.35);}
-.status{font-size:9.5px;font-weight:800;padding:4px 9px;border-radius:99px;
-  text-transform:uppercase;letter-spacing:0.6px;white-space:nowrap;}
-.status.idle{background:rgba(74,222,128,0.15);color:#a7f3c4;box-shadow:0 0 12px rgba(74,222,128,0.15);}
-.status.busy{background:rgba(251,191,36,0.15);color:#fde68a;box-shadow:0 0 12px rgba(251,191,36,0.15);}
-.status.locked{background:rgba(97,107,128,0.15);color:var(--text-mute);}
-.prog-wrap{margin-top:10px;}
-.prog-track{height:8px;background:var(--surface-2);border-radius:99px;overflow:hidden;
-  box-shadow:inset 0 1px 2px rgba(0,0,0,0.5);}
-.prog-bar{height:100%;width:0;background:linear-gradient(90deg,#60a5fa,#4ade80);
-  border-radius:99px;transition:width 0.15s linear;box-shadow:0 0 12px rgba(74,222,128,0.35);}
-.prog-text{font-size:11px;color:var(--text-dim);text-align:center;margin-top:6px;
-  font-variant-numeric:tabular-nums;font-weight:600;}
-.item-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;}
-.item-card{background:linear-gradient(180deg,var(--surface),rgba(15,20,29,0.85));
-  border:1px solid var(--border);border-radius:14px;padding:13px;
-  display:flex;flex-direction:column;gap:5px;animation:cardIn 0.4s var(--ease-out) both;}
-.item-emoji{font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));}
-.item-name{font-size:12px;font-weight:700;color:var(--text);margin-top:2px;}
-.item-qty{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums;
-  letter-spacing:-0.03em;color:#a7f3c4;}
-nav.tabs{position:absolute;bottom:0;left:0;right:0;
-  background:linear-gradient(180deg,rgba(15,20,29,0.75),rgba(15,20,29,0.98));
-  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
-  border-top:1px solid var(--border);display:flex;
-  padding-bottom:env(safe-area-inset-bottom);z-index:10;}
-nav.tabs::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(96,165,250,0.3),transparent);}
-.tab{flex:1;padding:10px 4px 12px;text-align:center;background:none;border:none;
-  color:var(--text-mute);cursor:pointer;transition:color 0.25s var(--ease-out);position:relative;}
-.tab-icon{font-size:20px;display:block;line-height:1;margin-bottom:3px;
-  transition:transform 0.3s var(--ease-spring);}
-.tab-label{font-size:10px;font-weight:700;letter-spacing:0.3px;}
-.tab.active{color:var(--accent);}
-.tab.active .tab-icon{transform:translateY(-2px) scale(1.1);}
-.tab.active::after{content:'';position:absolute;bottom:6px;left:50%;
-  transform:translateX(-50%);width:5px;height:5px;border-radius:50%;
-  background:var(--accent);box-shadow:0 0 10px rgba(74,222,128,0.5);}
-
-/* ==================== TOAST ==================== */
-#toast{position:fixed;top:calc(env(safe-area-inset-top) + 74px);left:50%;
-  transform:translate(-50%,-120%);
-  background:linear-gradient(135deg,rgba(30,36,48,0.98),rgba(20,26,36,0.98));
-  border:1px solid var(--border-hi);border-radius:14px;padding:12px 18px;
-  font-size:13px;font-weight:700;z-index:100;opacity:0;pointer-events:none;
-  transition:all 0.4s var(--ease-spring);max-width:88%;text-align:center;
-  box-shadow:0 12px 32px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.08);
-  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-#toast.show{opacity:1;transform:translate(-50%,0);}
-#toast.good{border-color:rgba(74,222,128,0.4);color:#a7f3c4;}
-#toast.bad{border-color:rgba(248,113,113,0.4);color:#fca5a5;}
-#toast.info{border-color:rgba(96,165,250,0.4);color:#93c5fd;}
-
-/* ==================== LOADING ==================== */
-.loading{position:fixed;inset:0;background:rgba(7,10,16,0.9);z-index:200;
-  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;
-  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
-.spinner{width:44px;height:44px;border:3px solid rgba(96,165,250,0.2);
-  border-top-color:var(--blue);border-radius:50%;animation:spin 0.8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
-.loading-text{font-size:13px;color:var(--text-dim);font-weight:600;}
-.hidden{display:none!important;}
-</style>
+<link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
-<!-- ============ SCREEN: AUTH ============ -->
+<!-- AUTH -->
 <section id="screen-auth" class="screen active">
-  <div style="width:100%;max-width:420px;margin:0 auto;">
+  <div class="auth-wrap">
     <div class="auth-logo">🏭</div>
     <div class="auth-title">JurkonCompanies</div>
     <div class="auth-sub">Bangun kerajaan bisnismu</div>
-
     <div class="tabs">
       <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Masuk</button>
       <button class="tab-btn" id="tabRegister" onclick="switchTab('register')">Daftar</button>
     </div>
-
     <div id="authMsg" class="msg"></div>
-
     <form id="loginForm" onsubmit="doLogin(event)">
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="loginEmail" placeholder="nama@email.com" autocomplete="email" required>
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="loginPassword" placeholder="password kamu" autocomplete="current-password" required>
-      </div>
+      <div class="field"><label>Email</label>
+        <input type="email" id="loginEmail" placeholder="nama@email.com" autocomplete="email" required></div>
+      <div class="field"><label>Password</label>
+        <input type="password" id="loginPassword" placeholder="password kamu" autocomplete="current-password" required></div>
       <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
     </form>
-
     <form id="registerForm" style="display:none;" onsubmit="doRegister(event)">
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="regEmail" placeholder="nama@email.com" autocomplete="email" required>
-      </div>
-      <div class="field">
-        <label>Password</label>
-        <input type="password" id="regPassword" placeholder="min. 6 karakter" autocomplete="new-password" required>
-      </div>
-      <div class="field">
-        <label>Username</label>
-        <input type="text" id="regUsername" placeholder="huruf/angka, tanpa spasi" autocomplete="username" required>
-      </div>
+      <div class="field"><label>Email</label>
+        <input type="email" id="regEmail" placeholder="nama@email.com" autocomplete="email" required></div>
+      <div class="field"><label>Password</label>
+        <input type="password" id="regPassword" placeholder="min. 6 karakter" autocomplete="new-password" required></div>
+      <div class="field"><label>Username</label>
+        <input type="text" id="regUsername" placeholder="huruf/angka, tanpa spasi" autocomplete="username" required></div>
       <button type="submit" class="btn btn-green" id="registerBtn">📝 Buat Akun</button>
     </form>
-
-    <div style="text-align:center;margin-top:20px;font-size:11px;color:var(--text-mute);">
-      v2.0 · Data tersimpan di cloud
-    </div>
+    <div class="version">v3.0 · Rantai Produksi & Auto</div>
   </div>
 </section>
 
-<!-- ============ SCREEN: ONBOARDING ============ -->
+<!-- ONBOARDING -->
 <section id="screen-onboarding" class="screen">
-  <div style="width:100%;max-width:420px;margin:0 auto;">
+  <div class="auth-wrap">
     <div class="auth-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);">✨</div>
     <div class="auth-title">Buat Profil</div>
     <div class="auth-sub">Kenalkan perusahaanmu ke dunia</div>
-
     <div id="onboardMsg" class="msg"></div>
-
     <div class="field">
       <label>Pilih Logo</label>
       <div class="avatar-grid" id="avatarGrid">
@@ -279,23 +61,19 @@ nav.tabs::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px
         <div class="avatar-opt" data-emoji="🔧">🔧</div>
       </div>
     </div>
-
-    <div class="field">
-      <label>Nama Perusahaan</label>
-      <input type="text" id="onboardCompany" placeholder="cth: PT Cahaya Energi" maxlength="30" required>
-    </div>
-
+    <div class="field"><label>Nama Perusahaan</label>
+      <input type="text" id="onboardCompany" placeholder="cth: PT Cahaya Energi" maxlength="30" required></div>
     <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai Bermain</button>
   </div>
 </section>
 
-<!-- ============ SCREEN: GAME ============ -->
+<!-- GAME -->
 <section id="screen-game" class="screen">
   <header>
     <div class="hdr-left">
       <div class="logo" id="hdrLogo">🏭</div>
       <div>
-        <div class="company-name" id="hdrCompany">PT Cahaya Energi</div>
+        <div class="company-name" id="hdrCompany">PT Anda</div>
         <div class="company-sub">Simulasi Bisnis</div>
       </div>
     </div>
@@ -304,9 +82,7 @@ nav.tabs::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px
       <div class="lvl-box">Lv <span id="hdrLevel">1</span></div>
     </div>
   </header>
-
   <main class="content" id="gameContent"></main>
-
   <nav class="tabs">
     <button class="tab active" data-tab="buildings"><span class="tab-icon">🏭</span><span class="tab-label">Bangunan</span></button>
     <button class="tab" data-tab="storage"><span class="tab-icon">📦</span><span class="tab-label">Gudang</span></button>
@@ -316,572 +92,13 @@ nav.tabs::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px
 </section>
 
 <div id="toast"></div>
-
 <div class="loading hidden" id="loading">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Memuat...</div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ============================================================
-   KONFIGURASI
-   ============================================================ */
-const SUPABASE_URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
-const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-/* ============================================================
-   KONSTANTA GAME
-   ============================================================ */
-const CONFIG = {
-  STARTING_CASH: 10000,
-  POWER_PLANT_COST: 2000,
-  POWER_PLANT_DURATION: 5000,
-  POWER_OUTPUT: 100,
-  ELECTRICITY_PRICE: 5,
-  XP_PER_SALE: 10,
-};
-
-const ITEMS = {
-  electricity: { name:'Listrik', emoji:'⚡', category:'Energi', basePrice:5 },
-};
-
-const BUILDINGS = {
-  powerPlant: {
-    name:'Pembangkit Listrik', emoji:'🏭',
-    desc:'Menghasilkan listrik dari batu bara.',
-    baseCost: CONFIG.POWER_PLANT_COST,
-    duration: CONFIG.POWER_PLANT_DURATION,
-    output: { item:'electricity', qty: CONFIG.POWER_OUTPUT },
-  },
-};
-
-/* ============================================================
-   STATE
-   ============================================================ */
-let user = null;
-let profile = null;
-let buildings = {};
-let inventory = {};
-let currentTab = 'buildings';
-let progressRaf = null;
-let productionTimer = null;
-
-/* ============================================================
-   HELPERS
-   ============================================================ */
-const $ = id => document.getElementById(id);
-const nf = new Intl.NumberFormat('en-US');
-const money = n => '$' + nf.format(Math.floor(n));
-
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  $('screen-' + name).classList.add('active');
-  window.scrollTo(0,0);
-}
-function toast(msg, type='info') {
-  const t = $('toast'); t.textContent = msg; t.className = 'show ' + type;
-  clearTimeout(t._t); t._t = setTimeout(()=>t.className='', 2200);
-}
-function showMsg(elId, msg, type) {
-  const el = $(elId); el.textContent = msg;
-  el.className = 'msg show ' + type;
-  clearTimeout(el._t);
-  el._t = setTimeout(()=>el.className='msg', 5000);
-}
-function hideMsg(elId) { $(elId).className = 'msg'; }
-function showLoading(txt='Memuat...') { $('loadingText').textContent = txt; $('loading').classList.remove('hidden'); }
-function hideLoading() { $('loading').classList.add('hidden'); }
-
-/* ============================================================
-   AUTH
-   ============================================================ */
-function switchTab(tab) {
-  $('tabLogin').classList.toggle('active', tab==='login');
-  $('tabRegister').classList.toggle('active', tab==='register');
-  $('loginForm').style.display = tab==='login' ? 'block' : 'none';
-  $('registerForm').style.display = tab==='register' ? 'block' : 'none';
-  hideMsg('authMsg');
-}
-
-async function doLogin(e) {
-  e.preventDefault();
-  hideMsg('authMsg');
-  const email = $('loginEmail').value.trim();
-  const password = $('loginPassword').value;
-  $('loginBtn').disabled = true; $('loginBtn').textContent = '⏳ Masuk...';
-  showLoading('Masuk ke akun...');
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) {
-    hideLoading();
-    $('loginBtn').disabled = false; $('loginBtn').textContent = '🔐 Masuk';
-    return showMsg('authMsg', '❌ ' + error.message, 'error');
-  }
-  user = data.user;
-  await enterGame();
-}
-
-async function doRegister(e) {
-  e.preventDefault();
-  hideMsg('authMsg');
-  const email = $('regEmail').value.trim();
-  const password = $('regPassword').value;
-  const username = $('regUsername').value.trim();
-
-  if (password.length < 6) return showMsg('authMsg', 'Password minimal 6 karakter', 'error');
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return showMsg('authMsg', 'Username: 3-20 karakter, huruf/angka/underscore', 'error');
-
-  $('registerBtn').disabled = true; $('registerBtn').textContent = '⏳ Mendaftar...';
-  showLoading('Membuat akun...');
-
-  const { data, error } = await sb.auth.signUp({
-    email, password,
-    options: { data: { username } }
-  });
-
-  if (error) {
-    hideLoading();
-    $('registerBtn').disabled = false; $('registerBtn').textContent = '📝 Buat Akun';
-    return showMsg('authMsg', '❌ ' + error.message, 'error');
-  }
-
-  user = data.user;
-  await enterGame();
-}
-
-async function doLogout() {
-  if (!confirm('Keluar dari akun?')) return;
-  if (productionTimer) clearTimeout(productionTimer);
-  if (progressRaf) cancelAnimationFrame(progressRaf);
-  await sb.auth.signOut();
-  user = null; profile = null; buildings = {}; inventory = {};
-  $('loginForm').reset(); $('registerForm').reset();
-  showScreen('auth');
-  switchTab('login');
-  toast('👋 Sampai jumpa!', 'info');
-}
-
-/* ============================================================
-   ENTER GAME — load profile, buildings, inventory
-   ============================================================ */
-async function enterGame() {
-  showLoading('Memuat profil...');
-
-  // Ambil profile
-  const { data: prof, error: pErr } = await sb
-    .from('profiles').select('*').eq('id', user.id).single();
-
-  if (pErr) {
-    hideLoading();
-    console.error('Profile error:', pErr);
-    return showMsg('authMsg', '❌ Gagal memuat profil: ' + pErr.message, 'error');
-  }
-
-  profile = prof;
-
-  // Kalau company_name masih default, ke onboarding
-  if (!profile.company_name || profile.company_name === 'PT Baru') {
-    hideLoading();
-    showScreen('onboarding');
-    return;
-  }
-
-  await loadGameData();
-  hideLoading();
-  showScreen('game');
-  render();
-  resumePendingProduction();
-}
-
-async function loadGameData() {
-  // Load buildings
-  const { data: bData } = await sb.from('buildings').select('*').eq('user_id', user.id);
-  buildings = {};
-  for (const bId of Object.keys(BUILDINGS)) {
-    buildings[bId] = { level:0, producing:false, endsAt:0, auto:false };
-  }
-  if (bData) {
-    for (const row of bData) {
-      if (buildings[row.building_id]) {
-        buildings[row.building_id] = {
-          level: row.level,
-          producing: row.producing,
-          endsAt: row.ends_at ? new Date(row.ends_at).getTime() : 0,
-          auto: row.auto,
-        };
-      }
-    }
-  }
-
-  // Load inventory
-  const { data: iData } = await sb.from('inventory').select('*').eq('user_id', user.id);
-  inventory = {};
-  for (const iId of Object.keys(ITEMS)) {
-    inventory[iId] = { qty:0, price: ITEMS[iId].basePrice };
-  }
-  if (iData) {
-    for (const row of iData) {
-      if (inventory[row.item_id]) inventory[row.item_id].qty = row.qty;
-    }
-  }
-}
-
-/* ============================================================
-   ONBOARDING
-   ============================================================ */
-document.querySelectorAll('.avatar-opt').forEach(opt => {
-  opt.addEventListener('click', () => {
-    document.querySelectorAll('.avatar-opt').forEach(o => o.classList.remove('selected'));
-    opt.classList.add('selected');
-  });
-});
-
-async function submitOnboarding() {
-  hideMsg('onboardMsg');
-  const company = $('onboardCompany').value.trim();
-  const avatar = document.querySelector('.avatar-opt.selected')?.dataset.emoji || '🏭';
-
-  if (company.length < 3) return showMsg('onboardMsg', 'Nama perusahaan minimal 3 karakter', 'error');
-  if (company.length > 30) return showMsg('onboardMsg', 'Nama perusahaan maksimal 30 karakter', 'error');
-
-  $('onboardBtn').disabled = true; $('onboardBtn').textContent = '⏳ Menyimpan...';
-  showLoading('Membuat perusahaan...');
-
-  const { error } = await sb.from('profiles').update({
-    company_name: company,
-    avatar: avatar,
-  }).eq('id', user.id);
-
-  if (error) {
-    hideLoading();
-    $('onboardBtn').disabled = false; $('onboardBtn').textContent = '🚀 Mulai Bermain';
-    return showMsg('onboardMsg', '❌ ' + error.message, 'error');
-  }
-
-  profile.company_name = company;
-  profile.avatar = avatar;
-
-  await loadGameData();
-  hideLoading();
-  showScreen('game');
-  render();
-  toast('🎉 Selamat datang, ' + company + '!', 'good');
-}
-
-/* ============================================================
-   SYNC TO CLOUD
-   ============================================================ */
-async function syncCash() {
-  await sb.from('profiles').update({
-    cash: profile.cash,
-    xp: profile.xp,
-    level: profile.level,
-  }).eq('id', user.id);
-}
-async function syncBuilding(bId) {
-  const b = buildings[bId];
-  await sb.from('buildings').upsert({
-    user_id: user.id,
-    building_id: bId,
-    level: b.level,
-    auto: b.auto,
-    producing: b.producing,
-    ends_at: b.endsAt ? new Date(b.endsAt).toISOString() : null,
-  }, { onConflict: 'user_id,building_id' });
-}
-async function syncInventory(itemId) {
-  await sb.from('inventory').upsert({
-    user_id: user.id,
-    item_id: itemId,
-    qty: inventory[itemId].qty,
-  }, { onConflict: 'user_id,item_id' });
-}
-
-/* ============================================================
-   GAME LOGIC
-   ============================================================ */
-function buildCost(bId) { return BUILDINGS[bId].baseCost; }
-function upgradeCost(bId) {
-  return Math.floor(BUILDINGS[bId].baseCost * Math.pow(1.5, buildings[bId].level));
-}
-function getOutputQty(bId) {
-  const lvl = buildings[bId].level;
-  if (!lvl) return 0;
-  return Math.floor(BUILDINGS[bId].output.qty * (1 + (lvl-1) * 0.5));
-}
-
-async function build(bId) {
-  if (buildings[bId].level > 0) return;
-  const cost = buildCost(bId);
-  if (profile.cash < cost) return toast('Uang tidak cukup', 'bad');
-
-  profile.cash -= cost;
-  buildings[bId].level = 1;
-  await syncCash();
-  await syncBuilding(bId);
-  render();
-  toast(`🏭 ${BUILDINGS[bId].name} dibangun!`, 'good');
-}
-
-async function upgrade(bId) {
-  const st = buildings[bId];
-  if (!st.level) return build(bId);
-  if (st.level >= 10) return toast('Max level', 'info');
-  const cost = upgradeCost(bId);
-  if (profile.cash < cost) return toast('Uang tidak cukup', 'bad');
-
-  profile.cash -= cost;
-  st.level++;
-  await syncCash();
-  await syncBuilding(bId);
-  render();
-  toast(`⬆️ ${BUILDINGS[bId].name} → Lv ${st.level}`, 'good');
-}
-
-async function startProduction(bId) {
-  const st = buildings[bId];
-  if (!st.level || st.producing) return;
-  const b = BUILDINGS[bId];
-
-  st.producing = true;
-  st.endsAt = Date.now() + b.duration;
-  await syncBuilding(bId);
-  render();
-  scheduleFinish(bId);
-}
-
-function scheduleFinish(bId) {
-  const st = buildings[bId];
-  const remain = st.endsAt - Date.now();
-  if (remain <= 0) { finishProduction(bId); return; }
-  clearTimeout(st._timer);
-  st._timer = setTimeout(()=>finishProduction(bId), remain);
-}
-
-async function finishProduction(bId) {
-  const st = buildings[bId];
-  if (!st.producing) return;
-  const b = BUILDINGS[bId];
-  const qty = getOutputQty(bId);
-
-  st.producing = false;
-  st.endsAt = 0;
-  inventory[b.output.item].qty += qty;
-  profile.xp += qty;
-  const newLvl = 1 + Math.floor(profile.xp / 1500);
-  if (newLvl > profile.level) { profile.level = newLvl; toast(`🎉 Level ${newLvl}!`, 'good'); }
-
-  await syncBuilding(bId);
-  await syncInventory(b.output.item);
-  await syncCash();
-  render();
-  toast(`✅ +${qty} ${ITEMS[b.output.item].name}`, 'good');
-}
-
-async function sellItem(itemId) {
-  const item = inventory[itemId];
-  if (item.qty <= 0) return;
-  const revenue = Math.floor(item.qty * item.price);
-  item.qty = 0;
-  profile.cash += revenue;
-  profile.xp += Math.floor(revenue / 10);
-  const newLvl = 1 + Math.floor(profile.xp / 1500);
-  if (newLvl > profile.level) { profile.level = newLvl; toast(`🎉 Level ${newLvl}!`, 'good'); }
-
-  await syncInventory(itemId);
-  await syncCash();
-  render();
-  toast(`💰 +${money(revenue)}`, 'good');
-}
-
-function resumePendingProduction() {
-  for (const bId of Object.keys(BUILDINGS)) {
-    const st = buildings[bId];
-    if (st.producing && st.endsAt) {
-      if (Date.now() >= st.endsAt) finishProduction(bId);
-      else scheduleFinish(bId);
-    }
-  }
-}
-
-/* ============================================================
-   RENDER
-   ============================================================ */
-function render() {
-  if (!profile) return;
-  $('hdrLogo').textContent = profile.avatar || '🏭';
-  $('hdrCompany').textContent = profile.company_name;
-  $('hdrCash').textContent = money(profile.cash);
-  $('hdrLevel').textContent = profile.level;
-
-  const c = $('gameContent');
-  if (currentTab === 'buildings') c.innerHTML = renderBuildings();
-  else if (currentTab === 'storage') c.innerHTML = renderStorage();
-  else if (currentTab === 'market') c.innerHTML = renderMarket();
-  else if (currentTab === 'profile') c.innerHTML = renderProfile();
-
-  cancelAnimationFrame(progressRaf);
-  if (currentTab === 'buildings') tickProgress();
-
-  requestAnimationFrame(() => {
-    const els = c.querySelectorAll('.card, .item-card');
-    els.forEach((el,i) => el.style.animationDelay = Math.min(i*30,300)+'ms');
-  });
-}
-
-function renderBuildings() {
-  let html = '<div class="section-title">Bangunan</div>';
-  for (const [bId, b] of Object.entries(BUILDINGS)) {
-    const st = buildings[bId];
-    const built = st.level > 0;
-    const maxed = st.level >= 10;
-    const bCost = buildCost(bId);
-    const uCost = upgradeCost(bId);
-    const outQty = built ? getOutputQty(bId) : b.output.qty;
-
-    let statusHtml = '';
-    if (!built) statusHtml = '<span class="status locked">Belum</span>';
-    else if (st.producing) statusHtml = '<span class="status busy">Produksi</span>';
-    else statusHtml = '<span class="status idle">Siap</span>';
-
-    let btnHtml = '';
-    if (!built) {
-      const disabled = profile.cash < bCost ? 'disabled' : '';
-      btnHtml = `<button class="btn btn-primary" ${disabled} onclick="build('${bId}')">Bangun · ${money(bCost)}</button>`;
-    } else {
-      const canUp = !maxed && profile.cash >= uCost;
-      const btnUp = !maxed
-        ? `<button class="btn btn-purple btn-sm" ${canUp?'':'disabled'} onclick="upgrade('${bId}')">⬆️ Lv ${st.level}→${st.level+1} · ${money(uCost)}</button>`
-        : `<button class="btn btn-outline btn-sm" disabled>✓ Max</button>`;
-      const btnProd = `<button class="btn btn-green btn-sm" ${st.producing?'disabled':''} onclick="startProduction('${bId}')">${st.producing?'⏳...':'⚡ Produksi'}</button>`;
-      btnHtml = `<div class="btn-row">${btnUp}${btnProd}</div>`;
-    }
-
-    const progHtml = st.producing
-      ? `<div class="prog-wrap"><div class="prog-track"><div class="prog-bar" data-bar="${bId}"></div></div>
-         <div class="prog-text" data-text="${bId}"></div></div>` : '';
-
-    html += `<div class="card building-card">
-      <div class="b-row1">
-        <div class="b-emoji">${b.emoji}</div>
-        <div class="b-info">
-          <div class="b-name">${b.name} ${built?`<span class="lvl-badge">Lv ${st.level}</span>`:''}</div>
-          <div class="b-desc">${b.desc}</div>
-          <div class="b-recipe">Output: <b>${outQty}× ${ITEMS[b.output.item].emoji} ${ITEMS[b.output.item].name}</b></div>
-        </div>
-        <div>${statusHtml}</div>
-      </div>
-      ${progHtml}${btnHtml}
-    </div>`;
-  }
-  return html;
-}
-
-function renderStorage() {
-  let html = '<div class="section-title">Gudang</div><div class="item-grid">';
-  for (const [id, item] of Object.entries(inventory)) {
-    const def = ITEMS[id];
-    html += `<div class="item-card">
-      <div class="item-emoji">${def.emoji}</div>
-      <div class="item-name">${def.name}</div>
-      <div class="item-qty">${nf.format(item.qty)}</div>
-    </div>`;
-  }
-  html += '</div>';
-  return html;
-}
-
-function renderMarket() {
-  let html = '<div class="section-title">Pasar</div>';
-  for (const [id, item] of Object.entries(inventory)) {
-    const def = ITEMS[id];
-    html += `<div class="card" style="padding:13px;display:flex;align-items:center;gap:12px;">
-      <div style="font-size:26px;width:38px;text-align:center;">${def.emoji}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:13.5px;font-weight:800;">${def.name}</div>
-        <div style="font-size:11px;color:var(--text-dim);margin-top:3px;font-variant-numeric:tabular-nums;font-weight:600;">
-          $${item.price.toFixed(2)}/unit · Stok: ${nf.format(item.qty)}
-        </div>
-      </div>
-      <button class="btn btn-gold btn-sm" style="width:auto;padding:10px 14px;" ${item.qty<=0?'disabled':''} onclick="sellItem('${id}')">
-        ${item.qty>0?money(item.qty*item.price):'—'}
-      </button>
-    </div>`;
-  }
-  return html;
-}
-
-function renderProfile() {
-  return `
-    <div class="section-title">Profil Perusahaan</div>
-    <div class="card" style="text-align:center;padding:22px;">
-      <div style="font-size:48px;margin-bottom:8px;">${profile.avatar||'🏭'}</div>
-      <div style="font-size:18px;font-weight:800;letter-spacing:-0.03em;">${profile.company_name}</div>
-      <div style="font-size:12px;color:var(--text-mute);margin-top:4px;">@${profile.username}</div>
-    </div>
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);">
-        <span style="color:var(--text-dim);font-size:13px;font-weight:600;">Level</span>
-        <span style="font-weight:800;font-variant-numeric:tabular-nums;">${profile.level}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);">
-        <span style="color:var(--text-dim);font-size:13px;font-weight:600;">Total XP</span>
-        <span style="font-weight:800;font-variant-numeric:tabular-nums;">${nf.format(profile.xp)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;padding:9px 0;">
-        <span style="color:var(--text-dim);font-size:13px;font-weight:600;">Uang Kas</span>
-        <span style="font-weight:800;color:#a7f3c4;font-variant-numeric:tabular-nums;">${money(profile.cash)}</span>
-      </div>
-    </div>
-    <button class="btn btn-red" onclick="doLogout()">🚪 Keluar</button>
-  `;
-}
-
-function tickProgress() {
-  let active = false;
-  for (const [bId, b] of Object.entries(BUILDINGS)) {
-    const st = buildings[bId];
-    if (!st.producing || !st.endsAt) continue;
-    active = true;
-    const remain = Math.max(0, st.endsAt - Date.now());
-    const pct = Math.min(100, 100 - (remain / b.duration * 100));
-    const bar = document.querySelector(`[data-bar="${bId}"]`);
-    const txt = document.querySelector(`[data-text="${bId}"]`);
-    if (bar) bar.style.width = pct + '%';
-    if (txt) txt.textContent = (remain/1000).toFixed(1) + 's';
-    if (remain <= 0) finishProduction(bId);
-  }
-  if (active) progressRaf = requestAnimationFrame(tickProgress);
-}
-
-/* ============================================================
-   TABS
-   ============================================================ */
-document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
-    t.classList.add('active');
-    currentTab = t.dataset.tab;
-    render();
-  });
-});
-
-/* ============================================================
-   INIT
-   ============================================================ */
-(async () => {
-  showLoading('Mengecek sesi...');
-  const { data } = await sb.auth.getSession();
-  if (data.session) {
-    user = data.session.user;
-    await enterGame();
-  } else {
-    hideLoading();
-    showScreen('auth');
-  }
-})();
-</script>
+<script src="js/config.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
-  </html>
+</html>
