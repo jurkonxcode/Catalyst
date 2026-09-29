@@ -76,6 +76,7 @@ async function enterGame(){
   if(profile.tutorial_step===undefined) profile.tutorial_step=0;
   if(profile.tutorial_dismissed===undefined) profile.tutorial_dismissed=false;
   if(profile.level_rewards_claimed===undefined) profile.level_rewards_claimed='';
+  if(profile.last_emergency_grant===undefined) profile.last_emergency_grant=null;
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
   if(!profile.company_name||profile.company_name==='PT Baru'){hideLoading();showScreen('onboarding');return;}
@@ -120,6 +121,66 @@ function addXP(n){profile.xp+=n;const nl=1+Math.floor(profile.xp/1500);if(nl>pro
 async function checkLevelRewards(){const claimed=(profile.level_rewards_claimed||'').split(',').filter(x=>x);for(const[lvlStr,reward]of Object.entries(LEVEL_REWARDS)){const lvl=parseInt(lvlStr);if(profile.level>=lvl&&!claimed.includes(lvlStr)){profile.cash+=reward;claimed.push(lvlStr);profile.level_rewards_claimed=claimed.join(',');await syncProfile();setTimeout(()=>{toast('🎁 '+t('levelup_reward')+' Lv '+lvl+': +'+money(reward),'good');},600);}}}
 
 /* ============================================================
+   EMERGENCY GRANT
+   ============================================================ */
+function canClaimEmergencyGrant(){
+  if(!profile) return false;
+  if(profile.cash >= 100) return false;
+  if(!profile.last_emergency_grant) return true;
+  const last = new Date(profile.last_emergency_grant).getTime();
+  const cooldown = 24 * 3600 * 1000;
+  return (Date.now() - last) > cooldown;
+}
+function getEmergencyCooldownRemaining(){
+  if(!profile || !profile.last_emergency_grant) return 0;
+  const last = new Date(profile.last_emergency_grant).getTime();
+  const cooldown = 24 * 3600 * 1000;
+  const remain = cooldown - (Date.now() - last);
+  return remain > 0 ? remain : 0;
+}
+async function claimEmergencyGrant(){
+  if(!canClaimEmergencyGrant()){
+    const remain = getEmergencyCooldownRemaining();
+    const hours = Math.ceil(remain / 3600000);
+    return toast(currentLang === 'id' ? `⏳ Tunggu ${hours} jam lagi` : `⏳ Wait ${hours}h more`, 'info');
+  }
+  const amount = 500;
+  profile.cash += amount;
+  profile.last_emergency_grant = new Date().toISOString();
+  await sb.from('profiles').update({cash: profile.cash, last_emergency_grant: profile.last_emergency_grant}).eq('id', user.id);
+  await logTransaction('emergency_grant', null, 0, amount, 'Emergency grant');
+  render();
+  toast('🚨 +' + money(amount) + ' ' + (currentLang === 'id' ? 'bantuan darurat' : 'emergency grant'), 'good');
+}
+function renderEmergencyCard(){
+  if(!profile) return '';
+  if(profile.cash >= 100) return '';
+  if(!canClaimEmergencyGrant()) {
+    const remain = getEmergencyCooldownRemaining();
+    const hours = Math.ceil(remain / 3600000);
+    return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-size:22px;">🚨</div>
+        <div style="flex:1;">
+          <div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang === 'id' ? 'Bantuan Darurat' : 'Emergency Grant'}</div>
+          <div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang === 'id' ? 'Tersedia dalam' : 'Available in'} ${hours}j</div>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="font-size:22px;">🚨</div>
+      <div style="flex:1;">
+        <div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang === 'id' ? 'Uang Menipis!' : 'Low Cash!'}</div>
+        <div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang === 'id' ? 'Klaim bantuan darurat $500 (sekali per 24 jam)' : 'Claim $500 emergency grant (once per 24h)'}</div>
+      </div>
+    </div>
+    <button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang === 'id' ? 'Klaim $500' : 'Claim $500'}</button>
+  </div>`;
+}
+
+/* ============================================================
    BUILD — dengan konfirmasi & error handling
    ============================================================ */
 async function build(bId){
@@ -127,7 +188,6 @@ async function build(bId){
   if(st.level>0 || st.upgrading) return;
   const c=buildCost(bId);
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
-
   const remaining = profile.cash - c;
   if (remaining < 500) {
     const msg = currentLang === 'id'
@@ -135,25 +195,18 @@ async function build(bId){
       : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nYou may struggle to build other buildings.\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
-
   const oldCash = profile.cash;
   const oldUpgrading = st.upgrading;
   const oldEndsAt = st.upgradeEndsAt;
-
   profile.cash-=c;
   st.upgrading=true;
   st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
-
-  try {
-    await Promise.all([syncProfile(),syncBuilding(bId)]);
-  } catch(e) {
-    profile.cash = oldCash;
-    st.upgrading = oldUpgrading;
-    st.upgradeEndsAt = oldEndsAt;
+  try { await Promise.all([syncProfile(),syncBuilding(bId)]); }
+  catch(e) {
+    profile.cash = oldCash; st.upgrading = oldUpgrading; st.upgradeEndsAt = oldEndsAt;
     console.error('BUILD ERROR:', e);
     return toast('❌ Sync error: ' + e.message, 'bad');
   }
-
   await logTransaction('build', bId, 0, -c);
   await advanceTutorial(1);
   render();
@@ -171,7 +224,6 @@ async function upgrade(bId){
   if(st.level>=CONFIG.MAX_LEVEL)return toast(t('t_max_level'),'info');
   const c=upgradeCost(bId);
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
-
   const remaining = profile.cash - c;
   if (remaining < 500) {
     const msg = currentLang === 'id'
@@ -179,25 +231,18 @@ async function upgrade(bId){
       : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
-
   const oldCash = profile.cash;
   const oldUpgrading = st.upgrading;
   const oldEndsAt = st.upgradeEndsAt;
-
   profile.cash-=c;
   st.upgrading=true;
   st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
-
-  try {
-    await Promise.all([syncProfile(),syncBuilding(bId)]);
-  } catch(e) {
-    profile.cash = oldCash;
-    st.upgrading = oldUpgrading;
-    st.upgradeEndsAt = oldEndsAt;
+  try { await Promise.all([syncProfile(),syncBuilding(bId)]); }
+  catch(e) {
+    profile.cash = oldCash; st.upgrading = oldUpgrading; st.upgradeEndsAt = oldEndsAt;
     console.error('UPGRADE ERROR:', e);
     return toast('❌ Sync error: ' + e.message, 'bad');
   }
-
   await logTransaction('upgrade', bId, 0, -c, 'Lv '+(st.level+1));
   render();
   const boostText=isBeginnerBoostActive()?' (🚀 2x)':'';
@@ -206,23 +251,7 @@ async function upgrade(bId){
 }
 
 function scheduleUpgradeFinish(bId){const st=buildings[bId];const remain=st.upgradeEndsAt-Date.now();if(remain<=0){finishUpgrade(bId);return;}clearTimeout(st._upTimer);st._upTimer=setTimeout(()=>finishUpgrade(bId),remain);}
-
-async function finishUpgrade(bId){
-  const st=buildings[bId];
-  if(!st.upgrading)return;
-  const wasNewBuild = st.level === 0;
-  st.upgrading=false;
-  st.upgradeEndsAt=0;
-  st.level+=1;
-  await syncBuilding(bId);
-  render();
-  if(wasNewBuild){
-    toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');
-  } else {
-    toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');
-  }
-}
-
+async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)return;const wasNewBuild=st.level===0;st.upgrading=false;st.upgradeEndsAt=0;st.level+=1;await syncBuilding(bId);render();if(wasNewBuild){toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');}else{toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');}}
 async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
 async function startProduction(bId){const st=buildings[bId];if(!st.level||st.producing||st.upgrading)return;if(!hasInputs(bId)){if(!st.auto)toast(t('t_insufficient_input'),'bad');return;}const b=BUILDINGS[bId];for(const it of Object.keys(b.inputs))inventory[it].qty-=getInputQty(bId,it);st.producing=true;st.endsAt=Date.now()+getProductionDuration(bId);const promises=[syncBuilding(bId)];for(const it of Object.keys(b.inputs))promises.push(syncInventory(it));await Promise.all(promises);render();scheduleFinish(bId);}
 function scheduleFinish(bId){const st=buildings[bId];const remain=st.endsAt-Date.now();if(remain<=0){finishProduction(bId);return;}clearTimeout(st._timer);st._timer=setTimeout(()=>finishProduction(bId),remain);}
@@ -282,7 +311,7 @@ function renderResearchTab(){if(Object.keys(research).length===0)return '<div cl
 function renderComingSoon(){return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
 function render(){if(!profile)return;$('hdrLogo').textContent=profile.avatar||'🏭';$('hdrCompany').textContent=profile.company_name;$('hdrCash').textContent=money(profile.cash);$('hdrLevel').textContent=profile.level;const c=$('gameContent');if(currentTab==='buildings')c.innerHTML=renderBuildings();else if(currentTab==='storage')c.innerHTML=renderStorage();else if(currentTab==='exchange')c.innerHTML=renderExchange();else if(currentTab==='profile')c.innerHTML=renderProfile();cancelAnimationFrame(progressRaf);if(currentTab==='buildings')tickProgress();if(currentTab==='storage'&&storageSubTab==='research')tickResearchProgress();if(currentTab==='exchange')renderTicker();}
-function renderBuildings(){let html=renderBoostCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr)html+=renderOneBuilding(bId,b);}return html;}
+function renderBuildings(){let html=renderBoostCard();html+=renderEmergencyCard();html+=renderTutorialCard();const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr)html+=renderOneBuilding(bId,b);}return html;}
 
 function renderOneBuilding(bId,b){
   const st=buildings[bId];
@@ -329,7 +358,7 @@ function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-s
 function setFilter(f){marketFilter=f;render();}
 function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
 
-function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v8 · Tutorial & Boost</div>`;}
+function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v9 · Emergency Grant</div>`;}
 async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
 function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
 async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
@@ -349,10 +378,7 @@ function tickProgress(){
       const bar=document.querySelector('[data-upbar="'+bId+'"]');
       const txt=document.querySelector('[data-uptext="'+bId+'"]');
       if(bar)bar.style.width=pct+'%';
-      if(txt){
-        const label = st.level === 0 ? (currentLang==='id'?'Bangun: ':'Building: ') : (currentLang==='id'?'Upgrade: ':'Upgrading: ');
-        txt.textContent=label+(remain/1000).toFixed(1)+'s';
-      }
+      if(txt){const label = st.level === 0 ? (currentLang==='id'?'Bangun: ':'Building: ') : (currentLang==='id'?'Upgrade: ':'Upgrading: ');txt.textContent=label+(remain/1000).toFixed(1)+'s';}
       if(remain<=0)finishUpgrade(bId);
     }
     if(st.producing&&st.endsAt){
