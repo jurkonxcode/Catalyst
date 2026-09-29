@@ -249,3 +249,11 @@ function setLang(lang){
   updateStaticUI();
   if (profile) render();
 }
+/* ============================================================
+   EXCHANGE CONFIG
+   ============================================================ */
+const EXCHANGE_CONFIG = {
+  MAX_SELL_ORDERS: 5,     // Maksimal order aktif per pemain
+  MIN_PRICE: 0.01,
+  TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'],
+};
