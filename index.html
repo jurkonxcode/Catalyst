@@ -6,11 +6,10 @@
 <meta name="theme-color" content="#070a10">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>JurkonCompanies</title>
-<link rel="stylesheet" href="css/style.css?v=3">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
-<!-- AUTH -->
 <section id="screen-auth" class="screen active">
   <div class="auth-wrap">
     <div class="auth-logo">🏭</div>
@@ -23,30 +22,28 @@
     <div id="authMsg" class="msg"></div>
     <form id="loginForm" onsubmit="doLogin(event)">
       <div class="field"><label>Email</label>
-        <input type="email" id="loginEmail" placeholder="nama@email.com" autocomplete="email" required></div>
+        <input type="email" id="loginEmail" placeholder="nama@email.com" required></div>
       <div class="field"><label>Password</label>
-        <input type="password" id="loginPassword" placeholder="password kamu" autocomplete="current-password" required></div>
+        <input type="password" id="loginPassword" placeholder="password kamu" required></div>
       <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
     </form>
     <form id="registerForm" style="display:none;" onsubmit="doRegister(event)">
       <div class="field"><label>Email</label>
-        <input type="email" id="regEmail" placeholder="nama@email.com" autocomplete="email" required></div>
+        <input type="email" id="regEmail" placeholder="nama@email.com" required></div>
       <div class="field"><label>Password</label>
-        <input type="password" id="regPassword" placeholder="min. 6 karakter" autocomplete="new-password" required></div>
+        <input type="password" id="regPassword" placeholder="min. 6 karakter" required></div>
       <div class="field"><label>Username</label>
-        <input type="text" id="regUsername" placeholder="huruf/angka, tanpa spasi" autocomplete="username" required></div>
+        <input type="text" id="regUsername" placeholder="huruf/angka" required></div>
       <button type="submit" class="btn btn-green" id="registerBtn">📝 Buat Akun</button>
     </form>
-    <div class="version">v3.0 · Rantai Produksi & Auto</div>
   </div>
 </section>
 
-<!-- ONBOARDING -->
 <section id="screen-onboarding" class="screen">
   <div class="auth-wrap">
     <div class="auth-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);">✨</div>
     <div class="auth-title">Buat Profil</div>
-    <div class="auth-sub">Kenalkan perusahaanmu ke dunia</div>
+    <div class="auth-sub">Kenalkan perusahaanmu</div>
     <div id="onboardMsg" class="msg"></div>
     <div class="field">
       <label>Pilih Logo</label>
@@ -62,19 +59,18 @@
       </div>
     </div>
     <div class="field"><label>Nama Perusahaan</label>
-      <input type="text" id="onboardCompany" placeholder="cth: PT Cahaya Energi" maxlength="30" required></div>
+      <input type="text" id="onboardCompany" placeholder="cth: PT Cahaya Energi" maxlength="30"></div>
     <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai Bermain</button>
   </div>
 </section>
 
-<!-- GAME -->
 <section id="screen-game" class="screen">
   <header>
     <div class="hdr-left">
       <div class="logo" id="hdrLogo">🏭</div>
       <div>
         <div class="company-name" id="hdrCompany">PT Anda</div>
-        <div class="company-sub">Simulasi Bisnis</div>
+        <div class="company-sub" id="hdrSub">Realtime Market</div>
       </div>
     </div>
     <div class="hdr-right">
@@ -82,11 +78,18 @@
       <div class="lvl-box">Lv <span id="hdrLevel">1</span></div>
     </div>
   </header>
+
+  <!-- TICKER HARGA PEMIAN -->
+  <div class="ticker" id="tickerBar">
+    <div class="ticker-loading">Memuat harga pasar...</div>
+  </div>
+
   <main class="content" id="gameContent"></main>
+
   <nav class="tabs">
     <button class="tab active" data-tab="buildings"><span class="tab-icon">🏭</span><span class="tab-label">Bangunan</span></button>
     <button class="tab" data-tab="storage"><span class="tab-icon">📦</span><span class="tab-label">Gudang</span></button>
-    <button class="tab" data-tab="market"><span class="tab-icon">💹</span><span class="tab-label">Pasar</span></button>
+    <button class="tab" data-tab="exchange"><span class="tab-icon">💱</span><span class="tab-label">Exchange</span></button>
     <button class="tab" data-tab="profile"><span class="tab-icon">👤</span><span class="tab-label">Profil</span></button>
   </nav>
 </section>
@@ -96,9 +99,10 @@
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Memuat...</div>
 </div>
+<div id="modalContainer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script src="js/config.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>
