@@ -417,3 +417,35 @@ nav.tabs{position:absolute;bottom:0;left:0;right:0;background:#ffffff;
 @keyframes spin{to{transform:rotate(360deg);}}
 .loading-text{font-size:13px;color:var(--text-dim);font-weight:600;}
 .hidden{display:none!important;}
+
+/* ============ WAREHOUSE SUB-NAV ============ */
+.sub-nav{display:flex;gap:6px;overflow-x:auto;padding:8px 0 12px;
+  scrollbar-width:none;margin-bottom:10px;border-bottom:1px solid var(--border);}
+.sub-nav::-webkit-scrollbar{display:none;}
+.sub-tab{display:flex;flex-direction:column;align-items:center;gap:4px;
+  padding:8px 12px;background:var(--surface);border:1px solid var(--border);
+  border-radius:10px;cursor:pointer;white-space:nowrap;flex-shrink:0;
+  font-family:inherit;color:var(--text-dim);transition:all 0.15s;min-width:66px;
+  box-shadow:var(--shadow-sm);}
+.sub-tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+.sub-icon{font-size:18px;line-height:1;}
+.sub-label{font-size:9px;font-weight:700;letter-spacing:0.2px;}
+
+/* RANK ROW */
+.rank-row{display:flex;align-items:center;gap:10px;padding:10px 12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  margin-bottom:6px;box-shadow:var(--shadow-sm);animation:cardIn 0.3s var(--ease-out) both;}
+.rank-row.me{border-color:var(--accent);background:#e6f0fb;}
+.rank-pos{width:34px;text-align:center;font-size:12px;font-weight:800;color:var(--text-dim);flex-shrink:0;}
+.rank-pos.gold{font-size:18px;}
+.rank-avatar{width:34px;height:34px;border-radius:9px;background:var(--surface-2);
+  display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;
+  border:1px solid var(--border);}
+.rank-info{flex:1;min-width:0;}
+.rank-name{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;color:var(--text);}
+.rank-meta{font-size:10px;color:var(--text-mute);margin-top:2px;}
+.rank-value{font-size:12.5px;font-weight:800;color:var(--gold);
+  font-variant-numeric:tabular-nums;flex-shrink:0;}
+.rank-you{font-size:9px;font-weight:800;background:var(--accent);color:#fff;
+  padding:2px 6px;border-radius:4px;margin-left:5px;vertical-align:middle;letter-spacing:0.3px;}
