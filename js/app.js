@@ -9,7 +9,7 @@ let tickerPrices = {};
 let currentTab = 'buildings';
 let storageSubTab = 'rank';
 let historyFilter = 'all';
-let progressRaf = null, researchRaf = null;
+let progressRaf = null, researchRaf = null, boostRaf = null;
 let modalItemId = null, modalSellOrderItem = null;
 let marketFilter = 'all';
 let realtimeChannel = null;
@@ -19,11 +19,26 @@ const nf = new Intl.NumberFormat('en-US');
 const money = n => '$' + nf.format(Math.floor(n));
 
 function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('screen-'+n).classList.add('active');window.scrollTo(0,0);}
-function toast(m,t='info'){const e=$('toast');e.textContent=m;e.className='show '+t;clearTimeout(e._t);e._t=setTimeout(()=>e.className='',2200);}
+function toast(m,t='info'){const e=$('toast');e.textContent=m;e.className='show '+t;clearTimeout(e._t);e._t=setTimeout(()=>e.className='',2500);}
 function showMsg(id,m,t){const e=$(id);e.textContent=m;e.className='msg show '+t;clearTimeout(e._t);e._t=setTimeout(()=>e.className='msg',5000);}
 function hideMsg(id){$(id).className='msg';}
 function showLoading(t='Loading...'){$('loadingText').textContent=t;$('loading').classList.remove('hidden');}
 function hideLoading(){$('loading').classList.add('hidden');}
+
+function isBeginnerBoostActive(){
+  if(!profile || !profile.created_at) return false;
+  const created = new Date(profile.created_at).getTime();
+  const expiresAt = created + BEGINNER_BOOST_HOURS * 3600 * 1000;
+  return Date.now() < expiresAt;
+}
+function getBoostRemaining(){
+  if(!isBeginnerBoostActive()) return 0;
+  const created = new Date(profile.created_at).getTime();
+  return (created + BEGINNER_BOOST_HOURS * 3600 * 1000) - Date.now();
+}
+function getBoostMult(){
+  return isBeginnerBoostActive() ? BEGINNER_BOOST_MULT : 1;
+}
 
 function getRating(){const l=profile.level;if(l>=15)return{text:'AAA',cls:'top'};if(l>=12)return{text:'AA',cls:'top'};if(l>=9)return{text:'A',cls:'high'};if(l>=7)return{text:'BBB',cls:'high'};if(l>=5)return{text:'BB',cls:''};if(l>=3)return{text:'B',cls:''};return{text:'C',cls:''};}
 function getCompanyValue(){let v=profile.cash;for(const[bId,b]of Object.entries(buildings)){if(b.level>0)v+=BUILDINGS[bId].baseCost*b.level*0.7;}for(const[itId,it]of Object.entries(inventory))v+=it.qty*it.price;return Math.floor(v);}
@@ -31,13 +46,15 @@ function fmtDate(ts){if(!ts)return '-';return new Date(ts).toLocaleDateString(cu
 function fmtTime(){return new Date().toLocaleTimeString(currentLang==='id'?'id-ID':'en-US',{hour:'2-digit',minute:'2-digit'});}
 function timeAgo(ts){if(!ts)return currentLang==='id'?'Baru saja':'Just now';const diff=Date.now()-new Date(ts).getTime();const m=Math.floor(diff/60000);if(m<1)return currentLang==='id'?'Baru saja':'Just now';if(m<60)return m+(currentLang==='id'?' menit lalu':' min ago');const h=Math.floor(m/60);if(h<24)return h+(currentLang==='id'?' jam lalu':' h ago');return Math.floor(h/24)+(currentLang==='id'?' hari lalu':' d ago');}
 
-function starsHtml(level){
-  let s='';
-  for(let i=0;i<RESEARCH_CONFIG.MAX_LEVEL;i++){
-    s += i < level ? '⭐' : '☆';
-  }
-  return s;
+function formatBoostTime(ms){
+  const total = Math.floor(ms/1000);
+  const h = Math.floor(total/3600);
+  const m = Math.floor((total%3600)/60);
+  const s = total%60;
+  return `${h}j ${m}m ${s}s`;
 }
+
+function starsHtml(level){let s='';for(let i=0;i<RESEARCH_CONFIG.MAX_LEVEL;i++){s+=i<level?'⭐':'☆';}return s;}
 
 function updateStaticUI(){
   document.title='Catalyst';
@@ -78,53 +95,24 @@ function updateStaticUI(){
 
 async function logTransaction(type, itemId, qty, amount, note){
   try{
-    await sb.from('transactions').insert({
-      user_id: user.id, type: type, item_id: itemId || null,
-      qty: qty || 0, amount: amount || 0, note: note || null
-    });
+    await sb.from('transactions').insert({user_id:user.id,type:type,item_id:itemId||null,qty:qty||0,amount:amount||0,note:note||null});
     transactions.unshift({type,item_id:itemId,qty:qty||0,amount:amount||0,note:note||null,created_at:new Date().toISOString()});
     if(transactions.length>100)transactions.pop();
   }catch(e){console.warn(e);}
 }
-
 async function loadTransactions(){
-  try{
-    const {data, error} = await sb.from('transactions').select('*').eq('user_id', user.id).order('created_at',{ascending:false}).limit(100);
-    if(error){transactions=[];return;}
-    transactions=data||[];
-  }catch(e){transactions=[];}
+  try{const{data,error}=await sb.from('transactions').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(100);if(error){transactions=[];return;}transactions=data||[];}catch(e){transactions=[];}
 }
-
 async function loadResearch(){
   try{
-    const {data, error} = await sb.from('research').select('*').eq('user_id', user.id);
+    const{data,error}=await sb.from('research').select('*').eq('user_id',user.id);
     research={};
-    for(const iId of RESEARCH_CONFIG.PILOT_ITEMS){
-      research[iId]={level:0,researching:false,endsAt:0};
-    }
-    if(error){console.warn('research load',error);return;}
-    for(const row of (data||[])){
-      if(research[row.item_id]){
-        research[row.item_id]={
-          level: row.level || 0,
-          researching: row.researching || false,
-          endsAt: row.research_ends_at ? new Date(row.research_ends_at).getTime() : 0
-        };
-      }
-    }
+    for(const iId of RESEARCH_CONFIG.PILOT_ITEMS)research[iId]={level:0,researching:false,endsAt:0};
+    if(error){console.warn(error);return;}
+    for(const row of (data||[])){if(research[row.item_id]){research[row.item_id]={level:row.level||0,researching:row.researching||false,endsAt:row.research_ends_at?new Date(row.research_ends_at).getTime():0};}}
   }catch(e){console.warn(e);}
 }
-
-async function syncResearch(itemId){
-  const r = research[itemId];
-  await sb.from('research').upsert({
-    user_id: user.id,
-    item_id: itemId,
-    level: r.level,
-    researching: r.researching,
-    research_ends_at: r.endsAt ? new Date(r.endsAt).toISOString() : null
-  },{onConflict:'user_id,item_id'});
-}
+async function syncResearch(itemId){const r=research[itemId];await sb.from('research').upsert({user_id:user.id,item_id:itemId,level:r.level,researching:r.researching,research_ends_at:r.endsAt?new Date(r.endsAt).toISOString():null},{onConflict:'user_id,item_id'});}
 
 function switchTab(tab){$('tabLogin').classList.toggle('active',tab==='login');$('tabRegister').classList.toggle('active',tab==='register');$('loginForm').style.display=tab==='login'?'block':'none';$('registerForm').style.display=tab==='register'?'block':'none';hideMsg('authMsg');}
 
@@ -137,7 +125,6 @@ async function doLogin(e){
   if(error){hideLoading();$('loginBtn').disabled=false;$('loginBtn').textContent=t('btn_login');return showMsg('authMsg','❌ '+error.message,'error');}
   user=data.user;await enterGame();
 }
-
 async function doRegister(e){
   e.preventDefault();hideMsg('authMsg');
   const email=$('regEmail').value.trim(),password=$('regPassword').value,username=$('regUsername').value.trim();
@@ -149,12 +136,12 @@ async function doRegister(e){
   if(error){hideLoading();$('registerBtn').disabled=false;$('registerBtn').textContent=t('btn_register');return showMsg('authMsg','❌ '+error.message,'error');}
   user=data.user;await enterGame();
 }
-
 async function doLogout(){
   if(!confirm(currentLang==='id'?'Keluar?':'Log out?'))return;
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   if(progressRaf)cancelAnimationFrame(progressRaf);
   if(researchRaf)cancelAnimationFrame(researchRaf);
+  if(boostRaf)cancelAnimationFrame(boostRaf);
   Object.values(buildings).forEach(b=>{clearTimeout(b._timer);clearTimeout(b._upTimer);});
   Object.values(research).forEach(r=>clearTimeout(r._timer));
   if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
@@ -170,6 +157,9 @@ async function enterGame(){
   const{data:prof,error:pErr}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(pErr){hideLoading();return showMsg('authMsg','❌ '+pErr.message,'error');}
   profile=prof;
+  if(profile.tutorial_step===undefined) profile.tutorial_step=0;
+  if(profile.tutorial_dismissed===undefined) profile.tutorial_dismissed=false;
+  if(profile.level_rewards_claimed===undefined) profile.level_rewards_claimed='';
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
   if(!profile.company_name||profile.company_name==='PT Baru'){hideLoading();showScreen('onboarding');return;}
@@ -178,7 +168,7 @@ async function enterGame(){
   await loadTransactions();
   await loadResearch();
   subscribeRealtime();
-  hideLoading();showScreen('game');render();resumeAllActions();resumeAllResearch();
+  hideLoading();showScreen('game');render();resumeAllActions();resumeAllResearch();startBoostTimer();
 }
 
 async function loadGameData(){
@@ -191,7 +181,6 @@ async function loadGameData(){
   for(const iId of Object.keys(ITEMS))inventory[iId]={qty:0,price:ITEMS[iId].basePrice};
   if(iData){for(const row of iData){if(inventory[row.item_id])inventory[row.item_id].qty=row.qty;}}
 }
-
 async function loadMarketOrders(){
   const{data,error}=await sb.from('market_orders').select('*').eq('status','open').order('price_per_unit',{ascending:false}).order('created_at',{ascending:true});
   if(error){console.warn(error);return;}
@@ -200,24 +189,17 @@ async function loadMarketOrders(){
   myOrders=all.filter(o=>o.seller_id===user.id);
   updateTickerFromMarket();
 }
-
 async function loadLeaderboard(){
   const{data,error}=await sb.from('profiles').select('id, username, company_name, avatar, level, xp, company_value').order('company_value',{ascending:false}).limit(50);
   if(error){console.warn(error);leaderboardData=[];return;}
   leaderboardData=data||[];
 }
-
 function updateTickerFromMarket(){
   const lowest={};
   for(const o of marketOrders){if(!lowest[o.item_id]||o.price_per_unit<lowest[o.item_id])lowest[o.item_id]=parseFloat(o.price_per_unit);}
-  for(const itemId of Object.keys(ITEMS)){
-    const newPrice=lowest[itemId]||null;
-    const prev=tickerPrices[itemId]?tickerPrices[itemId].price:null;
-    tickerPrices[itemId]={price:newPrice,prevPrice:prev};
-  }
+  for(const itemId of Object.keys(ITEMS)){const newPrice=lowest[itemId]||null;const prev=tickerPrices[itemId]?tickerPrices[itemId].price:null;tickerPrices[itemId]={price:newPrice,prevPrice:prev};}
   renderTicker();
 }
-
 function renderTicker(){
   const bar=$('tickerBar');if(!bar)return;
   let html='',hasAny=false;
@@ -232,16 +214,10 @@ function renderTicker(){
   if(!hasAny&&marketOrders.length===0)bar.innerHTML='<div class="ticker-loading">'+t('ex_empty')+'</div>';
   else bar.innerHTML=html;
 }
-
 function jumpToExchange(itemId){marketFilter=itemId;currentTab='exchange';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const tabEl=document.querySelector('.tab[data-tab="exchange"]');if(tabEl)tabEl.classList.add('active');render();}
-
-function subscribeRealtime(){
-  if(realtimeChannel)sb.removeChannel(realtimeChannel);
-  realtimeChannel=sb.channel('jc-market').on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},async()=>{await loadMarketOrders();if(currentTab==='exchange')render();}).subscribe();
-}
+function subscribeRealtime(){if(realtimeChannel)sb.removeChannel(realtimeChannel);realtimeChannel=sb.channel('jc-market').on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},async()=>{await loadMarketOrders();if(currentTab==='exchange')render();}).subscribe();}
 
 document.querySelectorAll('.avatar-opt').forEach(opt=>{opt.addEventListener('click',()=>{document.querySelectorAll('.avatar-opt').forEach(o=>o.classList.remove('selected'));opt.classList.add('selected');});});
-
 async function submitOnboarding(){
   hideMsg('onboardMsg');
   const company=$('onboardCompany').value.trim();
@@ -255,21 +231,43 @@ async function submitOnboarding(){
   profile.company_name=company;profile.avatar=avatar;
   await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();
   subscribeRealtime();
-  hideLoading();showScreen('game');render();
+  hideLoading();showScreen('game');render();startBoostTimer();
   toast(t('t_welcome')+', '+company+'!','good');
 }
 
-async function syncProfile(){const cv=getCompanyValue();profile.company_value=cv;await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);}
+async function syncProfile(){
+  const cv=getCompanyValue();
+  profile.company_value=cv;
+  await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);
+  if(profile.cash>=5000) advanceTutorial(6);
+}
 async function syncBuilding(bId){const b=buildings[bId];await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null},{onConflict:'user_id,building_id'});}
 async function syncInventory(itemId){await sb.from('inventory').upsert({user_id:user.id,item_id:itemId,qty:inventory[itemId].qty},{onConflict:'user_id,item_id'});}
 
 function buildCost(bId){return BUILDINGS[bId].baseCost;}
 function upgradeCost(bId){return Math.floor(BUILDINGS[bId].baseCost*Math.pow(1.5,buildings[bId].level));}
-function getUpgradeDurationMs(bId){return Math.floor(BUILDINGS[bId].upgradeTime*1000*(1+buildings[bId].level*0.5));}
+function getUpgradeDurationMs(bId){const base=Math.floor(BUILDINGS[bId].upgradeTime*1000*(1+buildings[bId].level*0.5));return Math.floor(base/getBoostMult());}
+function getProductionDuration(bId){return Math.floor(BUILDINGS[bId].duration/getBoostMult());}
 function getOutputQty(bId){const l=buildings[bId].level;return l?Math.floor(BUILDINGS[bId].output.qty*(1+(l-1)*0.5)):0;}
 function getInputQty(bId,itemId){const l=buildings[bId].level;return l?Math.ceil(BUILDINGS[bId].inputs[itemId]*(1+(l-1)*0.3)):0;}
 function hasInputs(bId){for(const it of Object.keys(BUILDINGS[bId].inputs)){if(inventory[it].qty<getInputQty(bId,it))return false;}return true;}
-function addXP(n){profile.xp+=n;const nl=1+Math.floor(profile.xp/1500);if(nl>profile.level){profile.level=nl;toast('🎉 Lv '+nl+'!','good');}}
+
+function addXP(n){
+  profile.xp+=n;
+  const nl=1+Math.floor(profile.xp/1500);
+  if(nl>profile.level){profile.level=nl;toast('🎉 Lv '+nl+'!','good');checkLevelRewards();}
+}
+async function checkLevelRewards(){
+  const claimed=(profile.level_rewards_claimed||'').split(',').filter(x=>x);
+  for(const[lvlStr,reward]of Object.entries(LEVEL_REWARDS)){
+    const lvl=parseInt(lvlStr);
+    if(profile.level>=lvl&&!claimed.includes(lvlStr)){
+      profile.cash+=reward;claimed.push(lvlStr);profile.level_rewards_claimed=claimed.join(',');
+      await syncProfile();
+      setTimeout(()=>{toast('🎁 '+t('levelup_reward')+' Lv '+lvl+': +'+money(reward),'good');},600);
+    }
+  }
+}
 
 async function build(bId){
   if(buildings[bId].level>0)return;
@@ -277,9 +275,9 @@ async function build(bId){
   profile.cash-=c;buildings[bId].level=1;
   await syncProfile();await syncBuilding(bId);
   await logTransaction('build', bId, 0, -c);
+  await advanceTutorial(1);
   render();toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');
 }
-
 async function upgrade(bId){
   const st=buildings[bId];if(!st.level)return build(bId);
   if(st.upgrading)return toast(t('status_upgrading')+'...','info');
@@ -289,9 +287,9 @@ async function upgrade(bId){
   profile.cash-=c;st.upgrading=true;st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);
   await Promise.all([syncProfile(),syncBuilding(bId)]);
   await logTransaction('upgrade', bId, 0, -c, 'Lv '+(st.level+1));
-  render();toast(t('t_upgrade_started')+' ('+Math.floor(getUpgradeDurationMs(bId)/1000)+'s)','info');scheduleUpgradeFinish(bId);
+  render();const boostText=isBeginnerBoostActive()?' (🚀 2x)':'';
+  toast(t('t_upgrade_started')+' ('+Math.floor(getUpgradeDurationMs(bId)/1000)+'s)'+boostText,'info');scheduleUpgradeFinish(bId);
 }
-
 function scheduleUpgradeFinish(bId){const st=buildings[bId];const remain=st.upgradeEndsAt-Date.now();if(remain<=0){finishUpgrade(bId);return;}clearTimeout(st._upTimer);st._upTimer=setTimeout(()=>finishUpgrade(bId),remain);}
 async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)return;st.upgrading=false;st.upgradeEndsAt=0;st.level++;await syncBuilding(bId);render();toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');}
 async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
@@ -300,109 +298,112 @@ async function startProduction(bId){
   const st=buildings[bId];if(!st.level||st.producing||st.upgrading)return;
   if(!hasInputs(bId)){if(!st.auto)toast(t('t_insufficient_input'),'bad');return;}
   const b=BUILDINGS[bId];for(const it of Object.keys(b.inputs))inventory[it].qty-=getInputQty(bId,it);
-  st.producing=true;st.endsAt=Date.now()+b.duration;
+  st.producing=true;st.endsAt=Date.now()+getProductionDuration(bId);
   const promises=[syncBuilding(bId)];for(const it of Object.keys(b.inputs))promises.push(syncInventory(it));
   await Promise.all(promises);render();scheduleFinish(bId);
 }
-
 function scheduleFinish(bId){const st=buildings[bId];const remain=st.endsAt-Date.now();if(remain<=0){finishProduction(bId);return;}clearTimeout(st._timer);st._timer=setTimeout(()=>finishProduction(bId),remain);}
-
 async function finishProduction(bId){
   const st=buildings[bId];if(!st.producing)return;
   const b=BUILDINGS[bId];const qty=getOutputQty(bId);
-  st.producing=false;st.endsAt=0;
-  inventory[b.output.item].qty+=qty;
+  st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;
   addXP(qty);
   await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);
   await logTransaction('produce', b.output.item, qty, 0, t(BUILDINGS[bId].nameKey));
+  await advanceTutorial(2);
   if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);
   else render();
 }
 
 /* ============================================================
-   RESEARCH LOGIC
+   TUTORIAL
    ============================================================ */
-async function startResearch(itemId){
-  const r = research[itemId];
-  if(!r) return;
-  if(r.researching) return toast(t('research_in_progress'),'info');
-  if(r.level >= RESEARCH_CONFIG.MAX_LEVEL) return toast(t('research_max'),'info');
-
-  const cost = getResearchCost(r.level);
-  if(profile.cash < cost) return toast(t('t_not_enough_money'),'bad');
-
-  profile.cash -= cost;
-  r.researching = true;
-  r.endsAt = Date.now() + getResearchDuration(r.level);
-
-  await Promise.all([syncProfile(), syncResearch(itemId)]);
-  await logTransaction('research_start', itemId, 0, -cost, 'Lv '+(r.level+1));
-
+async function advanceTutorial(stepDone){
+  if(!profile) return;
+  if(profile.tutorial_dismissed) return;
+  if(profile.tutorial_step>=stepDone) return;
+  if(profile.tutorial_step!==stepDone-1) return;
+  const step=TUTORIAL_STEPS.find(s=>s.id===stepDone);
+  if(!step) return;
+  profile.tutorial_step=stepDone;
+  profile.cash+=step.reward;
+  await syncProfile();
+  setTimeout(()=>{toast('✅ '+t(step.stepKey)+' +'+money(step.reward),'good');},400);
+  if(profile.tutorial_step>=TUTORIAL_STEPS.length){
+    setTimeout(()=>{toast(t('tutorial_done'),'good');},1800);
+  }
+}
+async function dismissTutorial(){
+  if(!confirm(currentLang==='id'?'Lewati tutorial?':'Skip tutorial?'))return;
+  profile.tutorial_dismissed=true;
+  await sb.from('profiles').update({tutorial_dismissed:true}).eq('id',user.id);
   render();
-  const sec = Math.round(getResearchDuration(r.level)/1000);
-  toast('🔬 '+t('research_start').replace('🔬 ','')+' ('+sec+'s)','info');
-  scheduleResearchFinish(itemId);
+  toast(t('tutorial_skipped'),'info');
 }
-
-function scheduleResearchFinish(itemId){
-  const r = research[itemId];
-  if(!r || !r.researching) return;
-  const remain = r.endsAt - Date.now();
-  if(remain <= 0){ finishResearch(itemId); return; }
-  clearTimeout(r._timer);
-  r._timer = setTimeout(()=>finishResearch(itemId), remain);
-}
-
-async function finishResearch(itemId){
-  const r = research[itemId];
-  if(!r || !r.researching) return;
-  r.researching = false;
-  r.endsAt = 0;
-  r.level += 1;
-
-  await syncResearch(itemId);
-  await logTransaction('research_done', itemId, 0, 0, 'Lv '+r.level);
-
-  if(currentTab==='storage' && storageSubTab==='research') render();
-  toast('🎉 '+t(ITEMS[itemId].nameKey)+' → '+starsHtml(r.level),'good');
-}
-
-function resumeAllResearch(){
-  for(const itemId of Object.keys(research)){
-    const r = research[itemId];
-    if(r.researching && r.endsAt){
-      if(Date.now() >= r.endsAt) finishResearch(itemId);
-      else scheduleResearchFinish(itemId);
-    }
+function renderTutorialCard(){
+  if(!profile) return '';
+  if(profile.tutorial_dismissed) return '';
+  if(profile.tutorial_step>=TUTORIAL_STEPS.length) return '';
+  const total=TUTORIAL_STEPS.length;
+  const step=profile.tutorial_step;
+  const pct=(step/total)*100;
+  let stepsHtml='';
+  for(let i=0;i<total;i++){
+    const s=TUTORIAL_STEPS[i];
+    const done=i<step;
+    const current=i===step;
+    const icon=done?'✅':(current?'▶️':'⬜');
+    const style=done?'opacity:0.55;text-decoration:line-through;':(current?'font-weight:800;color:#1e88e5;':'color:#8b95a3;');
+    stepsHtml+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;${style}"><span style="font-size:13px;flex-shrink:0;">${icon}</span><span>${t(s.stepKey)}</span></div>`;
   }
+  const totalReward=TUTORIAL_STEPS.reduce((s,x)=>s+x.reward,0);
+  return `<div class="card" style="border:1px solid rgba(30,136,229,0.4);background:linear-gradient(180deg,#e6f0fb,#fff);padding:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:800;color:#1565c0;">🎓 ${t('tutorial_title')}</div>
+      <button onclick="dismissTutorial()" style="background:none;border:none;color:#8b95a3;font-size:11px;font-weight:700;cursor:pointer;padding:4px 8px;font-family:inherit;">${t('tutorial_skip')} ✕</button>
+    </div>
+    <div style="background:#fff;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;border:1px solid #d0e3f5;">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#1e88e5,#42a5f5);transition:width 0.3s;"></div>
+    </div>
+    <div style="font-size:11px;color:#5a6472;margin-bottom:8px;font-weight:600;">${t('tutorial_progress')}: ${step} / ${total}</div>
+    ${stepsHtml}
+    <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.08);font-size:11px;color:#5a6472;">🎁 ${t('tutorial_total_reward')}: <b style="color:#1f7a3a;">+${money(totalReward)}</b></div>
+  </div>`;
 }
 
-function recoverPrices(){
-  let changed=false;
-  for(const[id,it]of Object.entries(inventory)){
-    const base=ITEMS[id].basePrice;
-    if(it.price<base){it.price=Math.min(base,it.price*CONFIG.PRICE_RECOVER);changed=true;}
-  }
-  if(changed&&currentTab==='exchange')render();
+function renderBoostCard(){
+  if(!isBeginnerBoostActive()) return '';
+  const remaining=getBoostRemaining();
+  return `<div class="card" style="border:1px solid rgba(230,149,0,0.4);background:linear-gradient(180deg,#fff5d9,#fff);padding:12px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="font-size:22px;">🚀</div>
+      <div style="flex:1;">
+        <div style="font-size:12.5px;font-weight:800;color:#8a6000;">${t('boost_active')}</div>
+        <div style="font-size:10.5px;color:#8a6000;margin-top:2px;">${t('boost_desc')}</div>
+      </div>
+      <div style="font-size:11px;font-weight:800;color:#8a6000;font-variant-numeric:tabular-nums;" data-boost-timer>${formatBoostTime(remaining)}</div>
+    </div>
+  </div>`;
 }
 
-function resumeAllActions(){
-  for(const bId of Object.keys(BUILDINGS)){
-    const st=buildings[bId];
-    if(st.upgrading&&st.upgradeEndsAt){if(Date.now()>=st.upgradeEndsAt)finishUpgrade(bId);else scheduleUpgradeFinish(bId);}
-    else if(st.producing&&st.endsAt){if(Date.now()>=st.endsAt)finishProduction(bId);else scheduleFinish(bId);}
-    else if(st.auto&&st.level>0&&hasInputs(bId))startProduction(bId);
-  }
+function startBoostTimer(){
+  if(boostRaf) cancelAnimationFrame(boostRaf);
+  const tick=()=>{
+    if(!isBeginnerBoostActive()) return;
+    const el=document.querySelector('[data-boost-timer]');
+    if(el){el.textContent=formatBoostTime(getBoostRemaining());}
+    boostRaf=requestAnimationFrame(tick);
+  };
+  tick();
 }
 
 /* ============================================================
-   SELL MODAL
+   SELL
    ============================================================ */
 function sellFromStorage(itemId){const it=inventory[itemId];if(it.qty<=0)return toast(t('t_insufficient_input'),'bad');openSellModal(itemId);}
 function openSellModal(itemId){
   const it=inventory[itemId];if(it.qty<=0)return;
-  modalItemId=itemId;
-  const def=ITEMS[itemId];const defName=t(def.nameKey);
+  modalItemId=itemId;const def=ITEMS[itemId];const defName=t(def.nameKey);
   $('modalContainer').innerHTML=`
     <div class="modal-backdrop" id="sellBackdrop" onclick="if(event.target.id==='sellBackdrop')closeModal()">
       <div class="modal-sheet" onclick="event.stopPropagation()">
@@ -422,7 +423,6 @@ function closeModal(){$('modalContainer').innerHTML='';modalItemId=null;modalSel
 function adjustSellQty(d){const it=inventory[modalItemId];const inp=$('sellQtyInput');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(it.qty,v+d));inp.value=v;updateSellTotal();}
 function setSellQty(v){const it=inventory[modalItemId];$('sellQtyInput').value=Math.min(v,it.qty);updateSellTotal();}
 function updateSellTotal(){const it=inventory[modalItemId];let v=parseInt($('sellQtyInput').value)||0;v=Math.max(0,Math.min(it.qty,v));$('sellTotal').textContent='$'+(v*it.price).toFixed(2);}
-
 async function confirmSell(){
   const itemId=modalItemId,it=inventory[itemId];
   let v=parseInt($('sellQtyInput').value)||0;v=Math.max(1,Math.min(it.qty,v));
@@ -432,12 +432,10 @@ async function confirmSell(){
   it.price=Math.max(ITEMS[itemId].basePrice*CONFIG.MIN_PRICE,it.price*(1-impact));
   await Promise.all([syncInventory(itemId),syncProfile()]);
   await logTransaction('sell_instant', itemId, v, revenue);
+  await advanceTutorial(3);
   closeModal();render();toast('💰 +'+money(revenue),'good');
 }
 
-/* ============================================================
-   ORDER JUAL
-   ============================================================ */
 function openCreateOrderModal(){
   const owned=Object.entries(inventory).filter(([id,it])=>it.qty>0);
   if(owned.length===0)return toast(currentLang==='id'?'Tidak ada barang untuk dijual':'Nothing to sell','bad');
@@ -459,7 +457,6 @@ function openCreateOrderModal(){
           <div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button><button class="btn btn-gold" id="orderSubmitBtn" onclick="submitSellOrder()">📢 ${currentLang==='id'?'Pasang':'Post'}</button></div>
         </div></div></div>`;
 }
-
 function pickSellOrderItem(itemId){
   modalSellOrderItem=itemId;
   document.querySelectorAll('.sell-item-opt').forEach(el=>el.classList.toggle('selected',el.dataset.item===itemId));
@@ -476,7 +473,6 @@ function pickSellOrderItem(itemId){
 function adjustOrderQty(d){const it=inventory[modalSellOrderItem];const inp=$('orderQty');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(it.qty,v+d));inp.value=v;updateOrderTotal();}
 function adjustOrderPrice(d){const inp=$('orderPrice');let v=parseFloat(inp.value)||0;v=Math.max(0.01,v+d);inp.value=v.toFixed(2);updateOrderTotal();}
 function updateOrderTotal(){const q=parseInt($('orderQty').value)||0;const p=parseFloat($('orderPrice').value)||0;$('orderTotal').textContent='$'+(q*p).toFixed(2);}
-
 async function submitSellOrder(){
   if(!modalSellOrderItem)return;
   if(myOrders.length>=EXCHANGE_CONFIG.MAX_SELL_ORDERS)return toast(currentLang==='id'?'Maksimum order tercapai':'Max orders','bad');
@@ -490,12 +486,10 @@ async function submitSellOrder(){
   if(error){$('orderSubmitBtn').disabled=false;$('orderSubmitBtn').textContent='📢 Post';return toast('❌ '+error.message,'bad');}
   it.qty-=qty;await syncInventory(modalSellOrderItem);
   await logTransaction('sell_order', modalSellOrderItem, qty, qty*price);
+  await advanceTutorial(4);
   closeModal();await loadMarketOrders();render();toast(currentLang==='id'?'📢 Order dipasang!':'📢 Order posted!','good');
 }
 
-/* ============================================================
-   BELI
-   ============================================================ */
 function openBuyModal(orderId){
   const order=marketOrders.find(o=>o.id===orderId);if(!order)return;
   const def=ITEMS[order.item_id];const price=parseFloat(order.price_per_unit);const maxQty=order.qty;
@@ -518,19 +512,17 @@ function openBuyModal(orderId){
 function adjustBuyQty(d,orderId){const order=marketOrders.find(o=>o.id===orderId);const inp=$('buyQty');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(order.qty,v+d));inp.value=v;updateBuyTotal(orderId,parseFloat(order.price_per_unit));}
 function setBuyQty(orderId,max,price){$('buyQty').value=max;updateBuyTotal(orderId,price);}
 function updateBuyTotal(orderId,price){const order=marketOrders.find(o=>o.id===orderId);let v=parseInt($('buyQty').value)||0;v=Math.max(0,Math.min(order.qty,v));$('buyTotal').textContent='$'+(v*price).toFixed(2);}
-
 async function confirmBuy(orderId){
   const order=marketOrders.find(o=>o.id===orderId);if(!order)return;
   let qty=parseInt($('buyQty').value)||0;qty=Math.max(1,Math.min(order.qty,qty));
   $('buyConfirmBtn').disabled=true;$('buyConfirmBtn').textContent='⏳...';
   const{data,error}=await sb.rpc('buy_market_order',{p_order_id:orderId,p_qty:qty});
   if(error){$('buyConfirmBtn').disabled=false;$('buyConfirmBtn').textContent='🛒 Buy';return toast('❌ '+error.message,'bad');}
-  const result=data;
-  profile.cash-=result.total;inventory[result.item_id].qty+=result.qty;
+  const result=data;profile.cash-=result.total;inventory[result.item_id].qty+=result.qty;
   await logTransaction('buy_order', result.item_id, result.qty, -result.total);
+  await advanceTutorial(5);
   closeModal();await loadMarketOrders();render();toast('🛒 +'+result.qty+' '+ITEMS[result.item_id].emoji+' (-'+money(result.total)+')','good');
 }
-
 async function cancelOrder(orderId){
   const order=myOrders.find(o=>o.id===orderId);if(!order)return;
   if(!confirm(currentLang==='id'?'Batalkan order ini?':'Cancel this order?'))return;
@@ -542,8 +534,57 @@ async function cancelOrder(orderId){
 }
 
 /* ============================================================
-   EDIT PROFIL
+   RESEARCH
    ============================================================ */
+async function startResearch(itemId){
+  const r=research[itemId];if(!r)return;
+  if(r.researching)return toast(t('research_in_progress'),'info');
+  if(r.level>=RESEARCH_CONFIG.MAX_LEVEL)return toast(t('research_max'),'info');
+  const cost=getResearchCost(r.level);
+  if(profile.cash<cost)return toast(t('t_not_enough_money'),'bad');
+  profile.cash-=cost;r.researching=true;r.endsAt=Date.now()+getResearchDuration(r.level);
+  await Promise.all([syncProfile(),syncResearch(itemId)]);
+  await logTransaction('research_start', itemId, 0, -cost, 'Lv '+(r.level+1));
+  render();
+  const sec=Math.round(getResearchDuration(r.level)/1000);
+  toast('🔬 Research started ('+sec+'s)','info');
+  scheduleResearchFinish(itemId);
+}
+function scheduleResearchFinish(itemId){
+  const r=research[itemId];if(!r||!r.researching)return;
+  const remain=r.endsAt-Date.now();
+  if(remain<=0){finishResearch(itemId);return;}
+  clearTimeout(r._timer);r._timer=setTimeout(()=>finishResearch(itemId),remain);
+}
+async function finishResearch(itemId){
+  const r=research[itemId];if(!r||!r.researching)return;
+  r.researching=false;r.endsAt=0;r.level+=1;
+  await syncResearch(itemId);
+  await logTransaction('research_done', itemId, 0, 0, 'Lv '+r.level);
+  if(currentTab==='storage'&&storageSubTab==='research')render();
+  toast('🎉 '+t(ITEMS[itemId].nameKey)+' → '+starsHtml(r.level),'good');
+}
+function resumeAllResearch(){
+  for(const itemId of Object.keys(research)){
+    const r=research[itemId];
+    if(r.researching&&r.endsAt){if(Date.now()>=r.endsAt)finishResearch(itemId);else scheduleResearchFinish(itemId);}
+  }
+}
+
+function recoverPrices(){
+  let changed=false;
+  for(const[id,it]of Object.entries(inventory)){const base=ITEMS[id].basePrice;if(it.price<base){it.price=Math.min(base,it.price*CONFIG.PRICE_RECOVER);changed=true;}}
+  if(changed&&currentTab==='exchange')render();
+}
+function resumeAllActions(){
+  for(const bId of Object.keys(BUILDINGS)){
+    const st=buildings[bId];
+    if(st.upgrading&&st.upgradeEndsAt){if(Date.now()>=st.upgradeEndsAt)finishUpgrade(bId);else scheduleUpgradeFinish(bId);}
+    else if(st.producing&&st.endsAt){if(Date.now()>=st.endsAt)finishProduction(bId);else scheduleFinish(bId);}
+    else if(st.auto&&st.level>0&&hasInputs(bId))startProduction(bId);
+  }
+}
+
 function openEditProfileModal(){
   const avatars=['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];
   const avatarHtml=avatars.map(e=>`<div class="avatar-opt ${(profile.avatar||'🏭')===e?'selected':''}" data-emoji="${e}" onclick="pickEditAvatar('${e}')">${e}</div>`).join('');
@@ -574,9 +615,6 @@ async function saveEditProfile(){
   closeModal();render();toast(t('t_profile_saved'),'good');
 }
 
-/* ============================================================
-   STORAGE SUB-TABS
-   ============================================================ */
 function setStorageSub(id){
   storageSubTab=id;
   if(id==='rank'){leaderboardData=null;render();loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});return;}
@@ -605,7 +643,6 @@ function renderStorage(){
   else html+=renderComingSoon();
   return html;
 }
-
 function renderRankTab(){
   if(leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';}
   if(leaderboardData.length===0)return '<div class="ex-empty"><span class="big">📊</span>'+t('rank_title')+'</div>';
@@ -618,21 +655,15 @@ function renderRankTab(){
   }
   return html;
 }
-
 function renderBuildingsListTab(){
   let html='<div class="section-title">'+t('buildings_list_title')+'</div>';
   const cats={};
   for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}
-  for(const[catName,arr]of Object.entries(cats)){
-    html+='<div class="cat-header">'+catName+'</div>';
-    for(const[bId,b]of arr){
-      const st=buildings[bId];const built=st.level>0;
-      html+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="font-size:26px;flex-shrink:0;">${b.emoji}</div><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:800;">${t(b.nameKey)}</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${built?'Lv '+st.level:'—'}</div></div>${built?'<div class="lvl-badge">Lv '+st.level+'</div>':'<div class="status locked">'+t('status_not_built')+'</div>'}</div>`;
-    }
-  }
+  for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';
+    for(const[bId,b]of arr){const st=buildings[bId];const built=st.level>0;
+      html+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="font-size:26px;flex-shrink:0;">${b.emoji}</div><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:800;">${t(b.nameKey)}</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${built?'Lv '+st.level:'—'}</div></div>${built?'<div class="lvl-badge">Lv '+st.level+'</div>':'<div class="status locked">'+t('status_not_built')+'</div>'}</div>`;}}
   return html;
 }
-
 function renderHistoryTab(){
   let html='<div class="section-title">'+t('history_title')+'</div>';
   html+='<div class="ex-filters">';
@@ -647,8 +678,7 @@ function renderHistoryTab(){
   for(const tx of filtered){
     const def=tx.item_id?ITEMS[tx.item_id]:null;
     const isIn=tx.amount>0;const isNeutral=tx.amount===0;
-    let color='#5a6472';
-    if(isIn)color='#2e9e4f';else if(!isNeutral)color='#e03e3e';
+    let color='#5a6472';if(isIn)color='#2e9e4f';else if(!isNeutral)color='#e03e3e';
     const amountStr=tx.amount===0?'':((tx.amount>0?'+':'')+money(Math.abs(tx.amount)));
     const icon=isIn?'⬇️':(isNeutral?'🔄':'⬆️');
     const typeLabel=t('tx_'+tx.type)||tx.type;
@@ -656,61 +686,26 @@ function renderHistoryTab(){
   }
   return html;
 }
-
 function renderResearchTab(){
-  if(Object.keys(research).length===0){
-    return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';
-  }
+  if(Object.keys(research).length===0)return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';
   let html='<div class="section-title">'+t('research_title')+'</div>';
   html+='<div style="background:var(--surface-2);padding:12px;border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">'+t('research_intro')+'</div>';
   for(const itemId of RESEARCH_CONFIG.PILOT_ITEMS){
-    const def=ITEMS[itemId];
-    const r=research[itemId];
+    const def=ITEMS[itemId];const r=research[itemId];
     const maxed=r.level>=RESEARCH_CONFIG.MAX_LEVEL;
     const cost=getResearchCost(r.level);
     const dur=Math.round(getResearchDuration(r.level)/1000);
     const canAfford=profile.cash>=cost;
-
-    let statusText='';
-    let btnHtml='';
-    let progHtml='';
-
-    if(maxed){
-      statusText='<span class="status auto">'+t('research_max')+'</span>';
-      btnHtml='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';
-    } else if(r.researching){
-      statusText='<span class="status busy">'+t('research_in_progress')+'</span>';
-      btnHtml='<button class="btn btn-purple btn-sm" disabled>⏳ '+t('research_in_progress')+'</button>';
-      progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';
-    } else {
-      statusText='<span class="status idle">'+t('status_ready')+'</span>';
-      const dis=!canAfford?'disabled':'';
-      btnHtml='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';
-    }
-
-    html+='<div class="card building-card">'+
-      '<div class="b-row1">'+
-        '<div class="b-emoji">'+def.emoji+'</div>'+
-        '<div class="b-info">'+
-          '<div class="b-name">'+t(def.nameKey)+'</div>'+
-          '<div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div>'+
-          '<div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div>'+
-        '</div>'+
-        '<div>'+statusText+'</div>'+
-      '</div>'+
-      progHtml+btnHtml+
-    '</div>';
+    let statusText='';let btnHtml='';let progHtml='';
+    if(maxed){statusText='<span class="status auto">'+t('research_max')+'</span>';btnHtml='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';}
+    else if(r.researching){statusText='<span class="status busy">'+t('research_in_progress')+'</span>';btnHtml='<button class="btn btn-purple btn-sm" disabled>⏳ '+t('research_in_progress')+'</button>';progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';}
+    else{statusText='<span class="status idle">'+t('status_ready')+'</span>';const dis=!canAfford?'disabled':'';btnHtml='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';}
+    html+='<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+def.emoji+'</div><div class="b-info"><div class="b-name">'+t(def.nameKey)+'</div><div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div><div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div></div><div>'+statusText+'</div></div>'+progHtml+btnHtml+'</div>';
   }
   return html;
 }
+function renderComingSoon(){return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
-function renderComingSoon(){
-  return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;
-}
-
-/* ============================================================
-   RENDER
-   ============================================================ */
 function render(){
   if(!profile)return;
   $('hdrLogo').textContent=profile.avatar||'🏭';
@@ -727,25 +722,20 @@ function render(){
   if(currentTab==='storage'&&storageSubTab==='research')tickResearchProgress();
   if(currentTab==='exchange')renderTicker();
 }
-
 function renderBuildings(){
+  let html=renderBoostCard();
+  html+=renderTutorialCard();
   const cats={};
   for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}
-  let html='';
   for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr)html+=renderOneBuilding(bId,b);}
   return html;
 }
-
 function renderOneBuilding(bId,b){
   const st=buildings[bId];const built=st.level>0,maxed=st.level>=CONFIG.MAX_LEVEL;
   const bCost=buildCost(bId),uCost=upgradeCost(bId);
   const outQty=built?getOutputQty(bId):b.output.qty;
   const bName=t(b.nameKey),bDesc=t(b.descKey);
-  const inputsText=Object.entries(b.inputs).map(([itId])=>{
-    const need=built?getInputQty(bId,itId):b.inputs[itId];
-    const have=inventory[itId].qty,ok=have>=need;
-    return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';
-  }).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
+  const inputsText=Object.entries(b.inputs).map(([itId])=>{const need=built?getInputQty(bId,itId):b.inputs[itId];const have=inventory[itId].qty,ok=have>=need;return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';}).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
   let statusHtml='';
   if(!built)statusHtml='<span class="status locked">'+t('status_not_built')+'</span>';
   else if(st.upgrading)statusHtml='<span class="status upgrading">'+t('status_upgrading')+'</span>';
@@ -768,21 +758,13 @@ function renderOneBuilding(bId,b){
   else if(st.producing)progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar" data-bar="'+bId+'"></div></div><div class="prog-text" data-text="'+bId+'"></div></div>';
   return '<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+bName+' '+(built?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+bDesc+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b></div></div><div>'+statusHtml+'</div></div>'+progHtml+btnHtml+'</div>';
 }
-
 function renderExchange(){
   let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';
   html+='<div class="ex-filters">';
   html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;
   for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}
   html+='</div>';
-  if(myOrders.length>0){
-    const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);
-    if(filtered.length>0){
-      html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;
-      for(const o of filtered)html+=renderOrderRow(o,true);
-      html+='</div>';
-    }
-  }
+  if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}
   const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);
   html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;
   if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;
@@ -795,135 +777,53 @@ function renderOrderRow(o,isMine){
   const def=ITEMS[o.item_id];const name=t(def.nameKey);
   const price=parseFloat(o.price_per_unit);const total=o.qty*price;
   const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);
-  if(isMine){
-    return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;
-  }
+  if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;
   return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;
 }
-
 function renderProfile(){
   const rating=getRating();const value=getCompanyValue();
   const desc=profile.company_description||'';const country=profile.country||'Indonesia';
   const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);
   const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;
   return `
-    <div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div>
-      <div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div>
+    <div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div>
     <div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div>
-    <div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list">
-      <div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div>
-      <div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div>
-      <div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div>
+    <div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div>
     <div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div>
-    <div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu">
-      <div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>
-      <div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>
-      <div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div>
-      <div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>
-    </div></div>
-    <div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v6 · Research</div>`;
+    <div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div>
+    <div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v7 · Tutorial</div>`;
 }
-
-async function saveDescription(){
-  const ta=document.getElementById('descInput');if(!ta)return;
-  const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');
-  const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);
-  if(error)return toast('❌','bad');
-  profile.company_description=desc;toast(t('t_desc_saved'),'good');
-}
-function copyCompanyId(){
-  const text=profile.username+' (ID: '+user.id.slice(0,8)+')';
-  if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));
-  else prompt('Copy:',text);
-}
-async function changePassword(){
-  const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;
-  if(np.length<6)return toast('Min 6','bad');
-  const{error}=await sb.auth.updateUser({password:np});
-  if(error)return toast('❌ '+error.message,'bad');
-  toast(t('t_password_changed'),'good');
-}
+async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
+function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
+async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
 async function deleteAccount(){
   if(!confirm('⚠️ Delete account?'))return;if(!confirm('Sure?'))return;
-  try{
-    await sb.from('profiles').delete().eq('id',user.id);
-    await sb.from('inventory').delete().eq('user_id',user.id);
-    await sb.from('buildings').delete().eq('user_id',user.id);
-    await sb.from('research').delete().eq('user_id',user.id);
-    await sb.from('market_orders').update({status:'cancelled'}).eq('seller_id',user.id);
-    await sb.auth.signOut();
-    user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};
-    $('loginForm').reset();$('registerForm').reset();
-    showScreen('auth');switchTab('login');
-  }catch(e){toast('❌ '+e.message,'bad');}
+  try{await sb.from('profiles').delete().eq('id',user.id);await sb.from('inventory').delete().eq('user_id',user.id);await sb.from('buildings').delete().eq('user_id',user.id);await sb.from('research').delete().eq('user_id',user.id);await sb.from('market_orders').update({status:'cancelled'}).eq('seller_id',user.id);await sb.auth.signOut();user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};$('loginForm').reset();$('registerForm').reset();showScreen('auth');switchTab('login');}catch(e){toast('❌ '+e.message,'bad');}
 }
-function showLangPicker(){
-  $('modalContainer').innerHTML=`
-    <div class="modal-backdrop" id="langBackdrop" onclick="if(event.target.id==='langBackdrop')closeModal()">
-      <div class="modal-sheet" onclick="event.stopPropagation()">
-        <div class="modal-grip"></div><div class="modal-title">🌐 ${t('p_language')}</div>
-        <div class="account-item" onclick="pickLang('id')" style="${currentLang==='id'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇮🇩</div><div class="account-label" style="font-size:15px;">Bahasa Indonesia</div>${currentLang==='id'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div>
-        <div class="account-item" onclick="pickLang('en')" style="${currentLang==='en'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇬🇧</div><div class="account-label" style="font-size:15px;">English</div>${currentLang==='en'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div>
-        <button class="btn btn-outline" style="margin-top:12px;" onclick="closeModal()">${t('sell_cancel')}</button>
-      </div></div>`;
-}
+function showLangPicker(){$('modalContainer').innerHTML=`<div class="modal-backdrop" id="langBackdrop" onclick="if(event.target.id==='langBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">🌐 ${t('p_language')}</div><div class="account-item" onclick="pickLang('id')" style="${currentLang==='id'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇮🇩</div><div class="account-label" style="font-size:15px;">Bahasa Indonesia</div>${currentLang==='id'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><div class="account-item" onclick="pickLang('en')" style="${currentLang==='en'?'background:var(--surface-2);':''}"><div class="account-icon" style="font-size:20px;">🇬🇧</div><div class="account-label" style="font-size:15px;">English</div>${currentLang==='en'?'<div style="color:#2e9e4f;font-weight:800;">✓</div>':''}</div><button class="btn btn-outline" style="margin-top:12px;" onclick="closeModal()">${t('sell_cancel')}</button></div></div>`;}
 function pickLang(lang){setLang(lang);closeModal();toast(lang==='id'?'🇮🇩 Bahasa Indonesia':'🇬🇧 English','good');}
 
 function tickProgress(){
   let active=false;
   for(const[bId,b]of Object.entries(BUILDINGS)){
     const st=buildings[bId];
-    if(st.upgrading&&st.upgradeEndsAt){active=true;const total=getUpgradeDurationMs(bId);const remain=Math.max(0,st.upgradeEndsAt-Date.now());const pct=Math.min(100,100-(remain/total*100));
-      const bar=document.querySelector('[data-upbar="'+bId+'"]');const txt=document.querySelector('[data-uptext="'+bId+'"]');
-      if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=(currentLang==='id'?'Upgrade: ':'Upgrading: ')+(remain/1000).toFixed(1)+'s';
-      if(remain<=0)finishUpgrade(bId);}
-    if(st.producing&&st.endsAt){active=true;const remain=Math.max(0,st.endsAt-Date.now());const pct=Math.min(100,100-(remain/b.duration*100));
-      const bar=document.querySelector('[data-bar="'+bId+'"]');const txt=document.querySelector('[data-text="'+bId+'"]');
-      if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=(currentLang==='id'?'Produksi: ':'Producing: ')+(remain/1000).toFixed(1)+'s';
-      if(remain<=0)finishProduction(bId);}
+    if(st.upgrading&&st.upgradeEndsAt){active=true;const total=getUpgradeDurationMs(bId);const remain=Math.max(0,st.upgradeEndsAt-Date.now());const pct=Math.min(100,100-(remain/total*100));const bar=document.querySelector('[data-upbar="'+bId+'"]');const txt=document.querySelector('[data-uptext="'+bId+'"]');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=(currentLang==='id'?'Upgrade: ':'Upgrading: ')+(remain/1000).toFixed(1)+'s';if(remain<=0)finishUpgrade(bId);}
+    if(st.producing&&st.endsAt){active=true;const dur=getProductionDuration(bId);const remain=Math.max(0,st.endsAt-Date.now());const pct=Math.min(100,100-(remain/dur*100));const bar=document.querySelector('[data-bar="'+bId+'"]');const txt=document.querySelector('[data-text="'+bId+'"]');if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=(currentLang==='id'?'Produksi: ':'Producing: ')+(remain/1000).toFixed(1)+'s';if(remain<=0)finishProduction(bId);}
   }
   if(active)progressRaf=requestAnimationFrame(tickProgress);
 }
-
 function tickResearchProgress(){
   let active=false;
   for(const itemId of Object.keys(research)){
-    const r=research[itemId];
-    if(!r.researching||!r.endsAt)continue;
-    active=true;
-    const total=getResearchDuration(r.level);
-    const remain=Math.max(0,r.endsAt-Date.now());
-    const pct=Math.min(100,100-(remain/total*100));
-    const bar=document.querySelector('[data-research-bar="'+itemId+'"]');
-    const txt=document.querySelector('[data-research-text="'+itemId+'"]');
-    if(bar)bar.style.width=pct+'%';
-    if(txt)txt.textContent=t('research_remains')+': '+(remain/1000).toFixed(1)+'s';
+    const r=research[itemId];if(!r.researching||!r.endsAt)continue;
+    active=true;const total=getResearchDuration(r.level);const remain=Math.max(0,r.endsAt-Date.now());const pct=Math.min(100,100-(remain/total*100));
+    const bar=document.querySelector('[data-research-bar="'+itemId+'"]');const txt=document.querySelector('[data-research-text="'+itemId+'"]');
+    if(bar)bar.style.width=pct+'%';if(txt)txt.textContent=t('research_remains')+': '+(remain/1000).toFixed(1)+'s';
     if(remain<=0)finishResearch(itemId);
   }
   if(active)researchRaf=requestAnimationFrame(tickResearchProgress);
 }
 
-document.querySelectorAll('.tab').forEach(tabEl=>{
-  tabEl.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    tabEl.classList.add('active');
-    currentTab=tabEl.dataset.tab;
-    if(currentTab==='storage'&&leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});}
-    render();
-  });
-});
+document.querySelectorAll('.tab').forEach(tabEl=>{tabEl.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));tabEl.classList.add('active');currentTab=tabEl.dataset.tab;if(currentTab==='storage'&&leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});}render();});});
 
-(async()=>{
-  document.documentElement.lang=currentLang;
-  updateStaticUI();
-  showLoading('Loading...');
-  const{data}=await sb.auth.getSession();
-  if(data.session){user=data.session.user;await enterGame();}
-  else{hideLoading();showScreen('auth');}
-  setInterval(recoverPrices,12000);
-})();
+(async()=>{document.documentElement.lang=currentLang;updateStaticUI();showLoading('Loading...');const{data}=await sb.auth.getSession();if(data.session){user=data.session.user;await enterGame();}else{hideLoading();showScreen('auth');}setInterval(recoverPrices,12000);})();
