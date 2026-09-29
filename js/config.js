@@ -1,9 +1,18 @@
+/* ============================================================
+   SUPABASE
+   ============================================================ */
 const SUPABASE_URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
 
+/* ============================================================
+   CONFIG
+   ============================================================ */
 const CONFIG = { MAX_LEVEL: 10, PRICE_RECOVER: 1.008, MIN_PRICE: 0.4 };
 const EXCHANGE_CONFIG = { MAX_SELL_ORDERS: 5, MIN_PRICE: 0.01, TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'] };
 
+/* ============================================================
+   ITEMS
+   ============================================================ */
 const ITEMS = {
   water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',     basePrice:1 },
   wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',     basePrice:5 },
@@ -14,6 +23,9 @@ const ITEMS = {
   cake:        { nameKey:'item_cake',        emoji:'🍰', categoryKey:'cat_product', basePrice:80 },
 };
 
+/* ============================================================
+   BUILDINGS
+   ============================================================ */
 const BUILDINGS = {
   waterPump:{categoryKey:'cat_extraction',nameKey:'b_waterpump',emoji:'🚰',descKey:'b_waterpump_desc',baseCost:500,duration:3000,upgradeTime:15,inputs:{},output:{item:'water',qty:20}},
   farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:2500,duration:5000,upgradeTime:25,inputs:{water:10},output:{item:'wheat',qty:15}},
@@ -24,6 +36,9 @@ const BUILDINGS = {
   cakeShop:{categoryKey:'cat_manufacturing',nameKey:'b_cakeshop',emoji:'🎂',descKey:'b_cakeshop_desc',baseCost:50000,duration:14000,upgradeTime:120,inputs:{flour:12,electricity:5,water:8},output:{item:'cake',qty:5}},
 };
 
+/* ============================================================
+   I18N — Indonesia
+   ============================================================ */
 const I18N = {
   id: {
     login:'Masuk', register:'Daftar', email:'Email', password:'Password', username:'Username',
@@ -68,6 +83,19 @@ const I18N = {
     t_logout_msg:'👋 Sampai jumpa!', t_coming_soon:'Segera hadir', t_not_enough_money:'Uang tidak cukup',
     t_insufficient_input:'Bahan kurang', t_max_level:'Max level', t_upgrade_started:'⬆️ Upgrade dimulai',
     t_welcome:'🎉 Selamat datang', t_building_done:'dibangun!', t_profile_saved:'✅ Profil tersimpan',
+    /* Warehouse Sub-Nav */
+    storage_rank:'Peringkat',
+    storage_history:'Riwayat',
+    storage_incoming:'Kontrak Masuk',
+    storage_outgoing:'Kontrak Keluar',
+    storage_buildings:'Bangunan',
+    storage_research:'Research',
+    rank_title:'Peringkat Perusahaan',
+    rank_you:'KAMU',
+    buildings_list_title:'Semua Bangunan',
+    coming_soon_title:'Segera Hadir',
+    coming_soon_desc:'Fitur ini sedang dikembangkan',
+    loading_data:'Memuat data...',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -112,9 +140,25 @@ const I18N = {
     t_logout_msg:'👋 See you!', t_coming_soon:'Coming soon', t_not_enough_money:'Not enough money',
     t_insufficient_input:'Insufficient input', t_max_level:'Max level', t_upgrade_started:'⬆️ Upgrade started',
     t_welcome:'🎉 Welcome', t_building_done:'built!', t_profile_saved:'✅ Profile saved',
+    /* Warehouse Sub-Nav */
+    storage_rank:'Rank',
+    storage_history:'History',
+    storage_incoming:'Incoming',
+    storage_outgoing:'Outgoing',
+    storage_buildings:'Buildings',
+    storage_research:'Research',
+    rank_title:'Company Rankings',
+    rank_you:'YOU',
+    buildings_list_title:'All Buildings',
+    coming_soon_title:'Coming Soon',
+    coming_soon_desc:'This feature is under development',
+    loading_data:'Loading data...',
   }
 };
 
+/* ============================================================
+   LANGUAGE
+   ============================================================ */
 let currentLang = (() => {
   const saved = localStorage.getItem('jc_lang');
   if (saved === 'id' || saved === 'en') return saved;
