@@ -329,3 +329,6 @@ nav.tabs::before{content:'';position:absolute;top:-1px;left:0;right:0;height:1px
 
 /* Toast tambah varian */
 #toast.warn{border-color:rgba(251,191,36,0.4);color:#fde68a;}
+/* Item card di gudang — efek tap */
+.item-card[onclick]{cursor:pointer;transition:transform 0.12s var(--ease-spring);}
+.item-card[onclick]:active{transform:scale(0.96);}
