@@ -8,7 +8,32 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
    CONFIG
    ============================================================ */
 const CONFIG = { MAX_LEVEL: 10, PRICE_RECOVER: 1.008, MIN_PRICE: 0.4 };
-const EXCHANGE_CONFIG = { MAX_SELL_ORDERS: 5, MIN_PRICE: 0.01, TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'] };
+
+/* ============================================================
+   EXCHANGE CONFIG
+   ============================================================ */
+const EXCHANGE_CONFIG = {
+  MAX_SELL_ORDERS: 5,
+  MIN_PRICE: 0.01,
+  TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'],
+};
+
+/* ============================================================
+   RESEARCH CONFIG
+   ============================================================ */
+const RESEARCH_CONFIG = {
+  MAX_LEVEL: 5,
+  PILOT_ITEMS: ['water', 'wheat', 'bread'],
+  baseCost: 500,
+  baseDuration: 30000,
+};
+
+function getResearchCost(currentLevel) {
+  return Math.floor(RESEARCH_CONFIG.baseCost * Math.pow(2, currentLevel));
+}
+function getResearchDuration(currentLevel) {
+  return Math.floor(RESEARCH_CONFIG.baseDuration * Math.pow(2, currentLevel));
+}
 
 /* ============================================================
    ITEMS
@@ -37,7 +62,7 @@ const BUILDINGS = {
 };
 
 /* ============================================================
-   I18N — Indonesia
+   I18N
    ============================================================ */
 const I18N = {
   id: {
@@ -83,19 +108,33 @@ const I18N = {
     t_logout_msg:'👋 Sampai jumpa!', t_coming_soon:'Segera hadir', t_not_enough_money:'Uang tidak cukup',
     t_insufficient_input:'Bahan kurang', t_max_level:'Max level', t_upgrade_started:'⬆️ Upgrade dimulai',
     t_welcome:'🎉 Selamat datang', t_building_done:'dibangun!', t_profile_saved:'✅ Profil tersimpan',
-    /* Warehouse Sub-Nav */
-    storage_rank:'Peringkat',
-    storage_history:'Riwayat',
-    storage_incoming:'Kontrak Masuk',
-    storage_outgoing:'Kontrak Keluar',
-    storage_buildings:'Bangunan',
-    storage_research:'Research',
-    rank_title:'Peringkat Perusahaan',
-    rank_you:'KAMU',
-    buildings_list_title:'Semua Bangunan',
-    coming_soon_title:'Segera Hadir',
-    coming_soon_desc:'Fitur ini sedang dikembangkan',
-    loading_data:'Memuat data...',
+    storage_rank:'Peringkat', storage_history:'Riwayat', storage_incoming:'Kontrak Masuk',
+    storage_outgoing:'Kontrak Keluar', storage_buildings:'Bangunan', storage_research:'Research',
+    rank_title:'Peringkat Perusahaan', rank_you:'KAMU', buildings_list_title:'Semua Bangunan',
+    coming_soon_title:'Segera Hadir', coming_soon_desc:'Fitur ini sedang dikembangkan', loading_data:'Memuat data...',
+    history_title:'Riwayat Aktivitas',
+    history_empty:'Belum ada riwayat. Mulai produksi & jual barang!',
+    history_filter_all:'Semua', history_filter_in:'Masuk', history_filter_out:'Keluar',
+    history_in:'Masuk', history_out:'Keluar',
+    tx_build:'Bangun', tx_upgrade:'Upgrade', tx_produce:'Produksi',
+    tx_sell_instant:'Jual Instan', tx_sell_order:'Pasang Order',
+    tx_buy_order:'Beli Order', tx_cancel_order:'Batal Order',
+    research_title:'Riset Teknologi',
+    research_empty:'Belum ada riset. Mulai naikkan bintang barangmu!',
+    research_intro:'Naikkan kualitas barang untuk jual lebih mahal di Exchange.',
+    research_star_level:'Level Bintang',
+    research_current:'Bintang saat ini',
+    research_next:'Bintang berikutnya',
+    research_cost:'Biaya',
+    research_time:'Waktu',
+    research_start:'🔬 Mulai Riset',
+    research_starting:'⏳ Memulai...',
+    research_in_progress:'Sedang diriset...',
+    research_done:'🎉 Riset selesai!',
+    research_max:'✓ Level Maksimal',
+    research_seconds:'detik',
+    research_completed:'Selesai',
+    research_remains:'Tersisa',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -140,25 +179,36 @@ const I18N = {
     t_logout_msg:'👋 See you!', t_coming_soon:'Coming soon', t_not_enough_money:'Not enough money',
     t_insufficient_input:'Insufficient input', t_max_level:'Max level', t_upgrade_started:'⬆️ Upgrade started',
     t_welcome:'🎉 Welcome', t_building_done:'built!', t_profile_saved:'✅ Profile saved',
-    /* Warehouse Sub-Nav */
-    storage_rank:'Rank',
-    storage_history:'History',
-    storage_incoming:'Incoming',
-    storage_outgoing:'Outgoing',
-    storage_buildings:'Buildings',
-    storage_research:'Research',
-    rank_title:'Company Rankings',
-    rank_you:'YOU',
-    buildings_list_title:'All Buildings',
-    coming_soon_title:'Coming Soon',
-    coming_soon_desc:'This feature is under development',
-    loading_data:'Loading data...',
+    storage_rank:'Rank', storage_history:'History', storage_incoming:'Incoming',
+    storage_outgoing:'Outgoing', storage_buildings:'Buildings', storage_research:'Research',
+    rank_title:'Company Rankings', rank_you:'YOU', buildings_list_title:'All Buildings',
+    coming_soon_title:'Coming Soon', coming_soon_desc:'This feature is under development', loading_data:'Loading data...',
+    history_title:'Activity History',
+    history_empty:'No history yet. Start producing & selling!',
+    history_filter_all:'All', history_filter_in:'In', history_filter_out:'Out',
+    history_in:'In', history_out:'Out',
+    tx_build:'Build', tx_upgrade:'Upgrade', tx_produce:'Production',
+    tx_sell_instant:'Instant Sell', tx_sell_order:'Post Order',
+    tx_buy_order:'Buy Order', tx_cancel_order:'Cancel Order',
+    research_title:'Technology Research',
+    research_empty:'No research yet. Start increasing item stars!',
+    research_intro:'Increase item quality to sell at higher prices on Exchange.',
+    research_star_level:'Star Level',
+    research_current:'Current stars',
+    research_next:'Next star',
+    research_cost:'Cost',
+    research_time:'Time',
+    research_start:'🔬 Start Research',
+    research_starting:'⏳ Starting...',
+    research_in_progress:'Researching...',
+    research_done:'🎉 Research complete!',
+    research_max:'✓ Max Level',
+    research_seconds:'seconds',
+    research_completed:'Completed',
+    research_remains:'Remaining',
   }
 };
 
-/* ============================================================
-   LANGUAGE
-   ============================================================ */
 let currentLang = (() => {
   const saved = localStorage.getItem('jc_lang');
   if (saved === 'id' || saved === 'en') return saved;
