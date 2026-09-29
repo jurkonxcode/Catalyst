@@ -54,7 +54,7 @@ function timeAgo(ts){
 }
 
 function updateStaticUI(){
-  document.title = 'JurkonCompanies';
+  document.title = 'Catalyst';
   const authScreen = $('screen-auth');
   if (authScreen) {
     authScreen.querySelector('.auth-sub').textContent = t('tagline');
@@ -782,6 +782,35 @@ function renderOrderRow(o, isMine){
     <div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div>
     <button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;
 }
+function renderCredits(){
+  return `
+    <div class="credits-card">
+      <div class="credits-logo">⚡</div>
+      <div class="credits-title">Catalyst</div>
+      <div class="credits-sub">Business Tycoon Simulator</div>
+      <div class="credits-divider"></div>
+      <div class="credits-role">Developed By</div>
+      <div class="credits-name">Jurkon Studio</div>
+      <div class="credits-role" style="margin-top:12px;">Chief Executive Officer</div>
+      <div class="credits-name">Kalfin Agus Setiawan</div>
+      <div class="credits-divider"></div>
+      <div class="credits-role" style="text-align:left;">Credits</div>
+      <ul class="credits-list">
+        <li><span>Game Design &amp; Development</span><span>Jurkon Studio</span></li>
+        <li><span>Backend Infrastructure</span><span>Supabase</span></li>
+        <li><span>Frontend Framework</span><span>Vanilla JS</span></li>
+        <li><span>Hosting</span><span>GitHub Pages</span></li>
+        <li><span>Art Direction</span><span>Emoji System</span></li>
+      </ul>
+      <div class="credits-divider"></div>
+      <div class="credits-footer">
+        © ${new Date().getFullYear()} Jurkon Studio · Made with <span class="credits-heart">❤</span> in Indonesia
+      </div>
+      <div class="credits-footer" style="margin-top:6px;font-size:9px;opacity:0.7;">
+        Version 5.0 · Cloud Sync
+      </div>
+    </div>`;
+}
 function renderProfile(){
   const rating = getRating();const value = getCompanyValue();
   const desc = profile.company_description || '';const country = profile.country || 'Indonesia';
@@ -829,9 +858,8 @@ function renderProfile(){
         <div class="account-item" onclick="deleteAccount()">
           <div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div>
           <div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div>
-    <div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">
-      JurkonCompanies v5 · Warehouse Sub-Nav</div>`;
-}
+    ${renderCredits()}`;
+  
 async function saveDescription(){
   const ta = document.getElementById('descInput');if(!ta) return;
   const desc = ta.value.trim();if (desc.length > 200) return toast('Max 200','bad');
