@@ -1,26 +1,14 @@
-/* ============================================================
-   SUPABASE
-   ============================================================ */
 const SUPABASE_URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
 
-/* ============================================================
-   CONFIG
-   ============================================================ */
 const CONFIG = { MAX_LEVEL: 10, PRICE_RECOVER: 1.008, MIN_PRICE: 0.4 };
 
-/* ============================================================
-   EXCHANGE CONFIG
-   ============================================================ */
 const EXCHANGE_CONFIG = {
   MAX_SELL_ORDERS: 5,
   MIN_PRICE: 0.01,
   TICKER_ITEMS: ['water','wheat','coal','electricity','flour','bread','cake'],
 };
 
-/* ============================================================
-   RESEARCH CONFIG
-   ============================================================ */
 const RESEARCH_CONFIG = {
   MAX_LEVEL: 5,
   PILOT_ITEMS: ['water', 'wheat', 'bread'],
@@ -36,8 +24,24 @@ function getResearchDuration(currentLevel) {
 }
 
 /* ============================================================
-   ITEMS
+   TUTORIAL + LEVEL REWARDS + BEGINNER BOOST
    ============================================================ */
+const BEGINNER_BOOST_HOURS = 24;
+const BEGINNER_BOOST_MULT = 2;
+
+const TUTORIAL_STEPS = [
+  { id:1, icon:'🏗️', reward:100, stepKey:'tut_step_1' },
+  { id:2, icon:'⚡', reward:150, stepKey:'tut_step_2' },
+  { id:3, icon:'💰', reward:200, stepKey:'tut_step_3' },
+  { id:4, icon:'📢', reward:250, stepKey:'tut_step_4' },
+  { id:5, icon:'🛒', reward:300, stepKey:'tut_step_5' },
+  { id:6, icon:'💵', reward:500, stepKey:'tut_step_6' },
+];
+
+const LEVEL_REWARDS = {
+  2: 500, 3: 1000, 4: 2000, 5: 3000, 6: 5000, 7: 8000,
+};
+
 const ITEMS = {
   water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',     basePrice:1 },
   wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',     basePrice:5 },
@@ -48,9 +52,6 @@ const ITEMS = {
   cake:        { nameKey:'item_cake',        emoji:'🍰', categoryKey:'cat_product', basePrice:80 },
 };
 
-/* ============================================================
-   BUILDINGS
-   ============================================================ */
 const BUILDINGS = {
   waterPump:{categoryKey:'cat_extraction',nameKey:'b_waterpump',emoji:'🚰',descKey:'b_waterpump_desc',baseCost:500,duration:3000,upgradeTime:15,inputs:{},output:{item:'water',qty:20}},
   farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:2500,duration:5000,upgradeTime:25,inputs:{water:10},output:{item:'wheat',qty:15}},
@@ -61,9 +62,6 @@ const BUILDINGS = {
   cakeShop:{categoryKey:'cat_manufacturing',nameKey:'b_cakeshop',emoji:'🎂',descKey:'b_cakeshop_desc',baseCost:50000,duration:14000,upgradeTime:120,inputs:{flour:12,electricity:5,water:8},output:{item:'cake',qty:5}},
 };
 
-/* ============================================================
-   I18N
-   ============================================================ */
 const I18N = {
   id: {
     login:'Masuk', register:'Daftar', email:'Email', password:'Password', username:'Username',
@@ -125,16 +123,30 @@ const I18N = {
     research_star_level:'Level Bintang',
     research_current:'Bintang saat ini',
     research_next:'Bintang berikutnya',
-    research_cost:'Biaya',
-    research_time:'Waktu',
-    research_start:'🔬 Mulai Riset',
-    research_starting:'⏳ Memulai...',
-    research_in_progress:'Sedang diriset...',
-    research_done:'🎉 Riset selesai!',
-    research_max:'✓ Level Maksimal',
-    research_seconds:'detik',
-    research_completed:'Selesai',
-    research_remains:'Tersisa',
+    research_cost:'Biaya', research_time:'Waktu',
+    research_start:'🔬 Mulai Riset', research_starting:'⏳ Memulai...',
+    research_in_progress:'Sedang diriset...', research_done:'🎉 Riset selesai!',
+    research_max:'✓ Level Maksimal', research_seconds:'detik',
+    research_completed:'Selesai', research_remains:'Tersisa',
+    /* Tutorial */
+    tutorial_title:'Tutorial Pemula',
+    tutorial_skip:'Lewati',
+    tutorial_progress:'Progress',
+    tutorial_total_reward:'Hadiah total',
+    tutorial_done:'🎓 Tutorial selesai! Selamat!',
+    tutorial_skipped:'Tutorial dilewati',
+    tut_step_1:'Bangun bangunan pertama',
+    tut_step_2:'Selesaikan 1 produksi',
+    tut_step_3:'Jual barang instan',
+    tut_step_4:'Pasang order di Exchange',
+    tut_step_5:'Beli dari pemain lain',
+    tut_step_6:'Capai $5.000 kas',
+    levelup_reward:'🎁 Bonus Level',
+    /* Beginner Boost */
+    boost_active:'Beginner Boost Aktif',
+    boost_desc:'Produksi & upgrade 2x lebih cepat',
+    boost_remains:'Tersisa',
+    boost_expired:'Boost berakhir',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -194,18 +206,31 @@ const I18N = {
     research_empty:'No research yet. Start increasing item stars!',
     research_intro:'Increase item quality to sell at higher prices on Exchange.',
     research_star_level:'Star Level',
-    research_current:'Current stars',
-    research_next:'Next star',
-    research_cost:'Cost',
-    research_time:'Time',
-    research_start:'🔬 Start Research',
-    research_starting:'⏳ Starting...',
-    research_in_progress:'Researching...',
-    research_done:'🎉 Research complete!',
-    research_max:'✓ Max Level',
-    research_seconds:'seconds',
-    research_completed:'Completed',
-    research_remains:'Remaining',
+    research_current:'Current stars', research_next:'Next star',
+    research_cost:'Cost', research_time:'Time',
+    research_start:'🔬 Start Research', research_starting:'⏳ Starting...',
+    research_in_progress:'Researching...', research_done:'🎉 Research complete!',
+    research_max:'✓ Max Level', research_seconds:'seconds',
+    research_completed:'Completed', research_remains:'Remaining',
+    /* Tutorial */
+    tutorial_title:'Beginner Tutorial',
+    tutorial_skip:'Skip',
+    tutorial_progress:'Progress',
+    tutorial_total_reward:'Total reward',
+    tutorial_done:'🎓 Tutorial complete! Congratulations!',
+    tutorial_skipped:'Tutorial skipped',
+    tut_step_1:'Build your first building',
+    tut_step_2:'Complete 1 production',
+    tut_step_3:'Sell items instantly',
+    tut_step_4:'Post order on Exchange',
+    tut_step_5:'Buy from another player',
+    tut_step_6:'Reach $5,000 cash',
+    levelup_reward:'🎁 Level Bonus',
+    /* Beginner Boost */
+    boost_active:'Beginner Boost Active',
+    boost_desc:'Production & upgrade 2x faster',
+    boost_remains:'Remaining',
+    boost_expired:'Boost expired',
   }
 };
 
