@@ -1,11 +1,11 @@
 /* ============================================================
-   KONFIGURASI SUPABASE
+   SUPABASE
    ============================================================ */
 const SUPABASE_URL = 'https://ugpgegvgfjbndamirmyo.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVncGdlZ3ZnZmpibmRhbWlybXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2ODkzMzQsImV4cCI6MjEwNjI2NTMzNH0.O-PTiJlC96r8bqbKSEZP9Tt5zAimyAHZd9YsEZSvnJc';
 
 /* ============================================================
-   KONFIGURASI GAME
+   CONFIG
    ============================================================ */
 const CONFIG = {
   MAX_LEVEL: 10,
@@ -14,69 +14,238 @@ const CONFIG = {
 };
 
 /* ============================================================
-   ITEMS — 7 item, 3 kategori
+   ITEMS — nama diambil dari I18N (untuk multi-bahasa)
    ============================================================ */
 const ITEMS = {
-  water:       { name:'Air',        emoji:'💧', category:'Bahan Baku', basePrice:1 },
-  wheat:       { name:'Gandum',     emoji:'🌾', category:'Bahan Baku', basePrice:5 },
-  coal:        { name:'Batu Bara',  emoji:'⚫', category:'Bahan Baku', basePrice:6 },
-  electricity: { name:'Listrik',    emoji:'⚡', category:'Energi',     basePrice:4 },
-  flour:       { name:'Tepung',     emoji:'🥣', category:'Produk',     basePrice:15 },
-  bread:       { name:'Roti',       emoji:'🍞', category:'Produk',     basePrice:40 },
-  cake:        { name:'Kue',        emoji:'🍰', category:'Produk',     basePrice:80 },
+  water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',       basePrice:1 },
+  wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',       basePrice:5 },
+  coal:        { nameKey:'item_coal',        emoji:'⚫', categoryKey:'cat_raw',       basePrice:6 },
+  electricity: { nameKey:'item_electricity', emoji:'⚡', categoryKey:'cat_energy',    basePrice:4 },
+  flour:       { nameKey:'item_flour',       emoji:'🥣', categoryKey:'cat_product',   basePrice:15 },
+  bread:       { nameKey:'item_bread',       emoji:'🍞', categoryKey:'cat_product',   basePrice:40 },
+  cake:        { nameKey:'item_cake',        emoji:'🍰', categoryKey:'cat_product',   basePrice:80 },
 };
 
 /* ============================================================
-   BUILDINGS — 7 bangunan, 3 kategori
+   BUILDINGS — nama diambil dari I18N
    ============================================================ */
 const BUILDINGS = {
   waterPump: {
-    category:'Ekstraksi', name:'Water Pump', emoji:'🚰',
-    desc:'Memompa air bersih dari tanah.',
-    baseCost: 500, duration: 3000,
-    inputs: {},
-    output: { item:'water', qty:20 },
+    categoryKey:'cat_extraction', nameKey:'b_waterpump', emoji:'🚰',
+    descKey:'b_waterpump_desc',
+    baseCost: 500, duration: 3000, upgradeTime: 15,
+    inputs: {}, output: { item:'water', qty:20 },
   },
   farm: {
-    category:'Ekstraksi', name:'Farm', emoji:'🌱',
-    desc:'Menanam gandum. Butuh air untuk irigasi.',
-    baseCost: 2500, duration: 5000,
-    inputs: { water: 10 },
-    output: { item:'wheat', qty:15 },
+    categoryKey:'cat_extraction', nameKey:'b_farm', emoji:'🌱',
+    descKey:'b_farm_desc',
+    baseCost: 2500, duration: 5000, upgradeTime: 25,
+    inputs: { water: 10 }, output: { item:'wheat', qty:15 },
   },
   mine: {
-    category:'Ekstraksi', name:'Mine', emoji:'⛏️',
-    desc:'Menambang batu bara. Butuh air untuk pendingin.',
-    baseCost: 6000, duration: 7000,
-    inputs: { water: 15 },
-    output: { item:'coal', qty:12 },
+    categoryKey:'cat_extraction', nameKey:'b_mine', emoji:'⛏️',
+    descKey:'b_mine_desc',
+    baseCost: 6000, duration: 7000, upgradeTime: 45,
+    inputs: { water: 15 }, output: { item:'coal', qty:12 },
   },
   powerPlant: {
-    category:'Pengolahan', name:'Power Plant', emoji:'🏭',
-    desc:'Membakar batu bara menjadi listrik.',
-    baseCost: 10000, duration: 8000,
-    inputs: { coal: 10 },
-    output: { item:'electricity', qty:30 },
+    categoryKey:'cat_processing', nameKey:'b_powerplant', emoji:'🏭',
+    descKey:'b_powerplant_desc',
+    baseCost: 10000, duration: 8000, upgradeTime: 60,
+    inputs: { coal: 10 }, output: { item:'electricity', qty:30 },
   },
   mill: {
-    category:'Pengolahan', name:'Mill', emoji:'⚙️',
-    desc:'Menggiling gandum menjadi tepung.',
-    baseCost: 12000, duration: 7000,
-    inputs: { wheat: 15 },
-    output: { item:'flour', qty:10 },
+    categoryKey:'cat_processing', nameKey:'b_mill', emoji:'⚙️',
+    descKey:'b_mill_desc',
+    baseCost: 12000, duration: 7000, upgradeTime: 60,
+    inputs: { wheat: 15 }, output: { item:'flour', qty:10 },
   },
   bakery: {
-    category:'Manufaktur', name:'Bakery', emoji:'🥖',
-    desc:'Memanggang roti dari tepung & air.',
-    baseCost: 25000, duration: 10000,
-    inputs: { flour: 10, water: 10 },
-    output: { item:'bread', qty:8 },
+    categoryKey:'cat_manufacturing', nameKey:'b_bakery', emoji:'🥖',
+    descKey:'b_bakery_desc',
+    baseCost: 25000, duration: 10000, upgradeTime: 90,
+    inputs: { flour: 10, water: 10 }, output: { item:'bread', qty:8 },
   },
   cakeShop: {
-    category:'Manufaktur', name:'Cake Shop', emoji:'🎂',
-    desc:'Membuat kue premium dari tepung, listrik & air.',
-    baseCost: 50000, duration: 14000,
-    inputs: { flour: 12, electricity: 5, water: 8 },
-    output: { item:'cake', qty:5 },
+    categoryKey:'cat_manufacturing', nameKey:'b_cakeshop', emoji:'🎂',
+    descKey:'b_cakeshop_desc',
+    baseCost: 50000, duration: 14000, upgradeTime: 120,
+    inputs: { flour: 12, electricity: 5, water: 8 }, output: { item:'cake', qty:5 },
   },
 };
+
+/* ============================================================
+   I18N — Kamus 2 Bahasa
+   ============================================================ */
+const I18N = {
+  id: {
+    /* Auth */
+    login:'Masuk', register:'Daftar', email:'Email', password:'Password', username:'Username',
+    ph_email:'nama@email.com', ph_password:'password kamu', ph_password_new:'min. 6 karakter',
+    ph_username:'huruf/angka, tanpa spasi',
+    btn_login:'🔐 Masuk', btn_register:'📝 Buat Akun',
+    msg_logging:'⏳ Masuk...', msg_registering:'⏳ Mendaftar...',
+    tagline:'Bangun kerajaan bisnismu',
+    /* Onboarding */
+    create_profile:'Buat Profil', create_profile_sub:'Kenalkan perusahaanmu ke dunia',
+    choose_logo:'Pilih Logo', company_name_label:'Nama Perusahaan',
+    company_name_ph:'cth: PT Cahaya Energi', btn_start:'🚀 Mulai Bermain',
+    msg_saving:'⏳ Menyimpan...', msg_creating_company:'Membuat perusahaan...',
+    /* Header */
+    company_sub:'Simulasi Bisnis', lv:'Lv',
+    /* Tabs */
+    tab_buildings:'Bangunan', tab_storage:'Gudang', tab_market:'Pasar', tab_profile:'Profil',
+    /* Status */
+    status_not_built:'Belum', status_ready:'Siap', status_producing:'Produksi',
+    status_upgrading:'Upgrade', status_auto:'Auto', status_low_input:'Kurang',
+    /* Buttons */
+    btn_build:'Bangun', btn_produce:'⚡ Produksi', btn_producing:'⏳...',
+    btn_upgrading:'⏳ Upgrading...', btn_max:'✓ Max', btn_auto:'Auto',
+    btn_sell:'Jual', btn_save_desc:'💾 Simpan Deskripsi',
+    /* Categories (building) */
+    cat_extraction:'EKSTRAKSI', cat_processing:'PENGOLAHAN', cat_manufacturing:'MANUFAKTUR',
+    /* Categories (item) */
+    cat_raw:'Bahan Baku', cat_energy:'Energi', cat_product:'Produk',
+    /* Items */
+    item_water:'Air', item_wheat:'Gandum', item_coal:'Batu Bara',
+    item_electricity:'Listrik', item_flour:'Tepung', item_bread:'Roti', item_cake:'Kue',
+    /* Buildings */
+    b_waterpump:'Water Pump', b_waterpump_desc:'Memompa air bersih dari tanah.',
+    b_farm:'Farm', b_farm_desc:'Menanam gandum. Butuh air untuk irigasi.',
+    b_mine:'Mine', b_mine_desc:'Menambang batu bara. Butuh air untuk pendingin.',
+    b_powerplant:'Power Plant', b_powerplant_desc:'Membakar batu bara menjadi listrik.',
+    b_mill:'Mill', b_mill_desc:'Menggiling gandum menjadi tepung.',
+    b_bakery:'Bakery', b_bakery_desc:'Memanggang roti dari tepung & air.',
+    b_cakeshop:'Cake Shop', b_cakeshop_desc:'Membuat kue premium dari tepung, listrik & air.',
+    /* Market */
+    market_title:'Pasar', market_hint:'Tap untuk jual',
+    sell_modal_title:'Jual',
+    sell_qty:'Jumlah',
+    sell_max:'MAX',
+    sell_price_per:'Harga per unit',
+    sell_total:'Total pendapatan',
+    sell_confirm:'💰 Jual', sell_cancel:'Batal',
+    /* Profile */
+    p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score',
+    p_info:'Info Perusahaan',
+    p_rating:'Rating', p_level:'Level', p_xp:'Total XP', p_buildings:'Bangunan',
+    p_country:'Negara', p_established:'Terdaftar', p_last_seen:'Terakhir dilihat',
+    p_local_time:'Waktu lokal',
+    p_description:'Deskripsi Publik',
+    p_description_ph:'Ceritakan tentang perusahaanmu... (maks 200 karakter)',
+    p_account:'Akun',
+    p_language:'Bahasa', p_preferences:'Preferensi',
+    p_change_password:'Ubah Password', p_logout:'Keluar', p_delete:'Hapus Akun',
+    p_online:'Online', p_pt:'Perseroan Terbatas',
+    p_copy_id:'📋 Copy ID', p_edit_profile:'✏️ Edit Profil',
+    p_units:'unit',
+    /* Toast */
+    t_copied:'📋 ID disalin',
+    t_desc_saved:'✅ Deskripsi tersimpan',
+    t_password_changed:'✅ Password diubah',
+    t_logout_msg:'👋 Sampai jumpa!',
+    t_coming_soon:'Segera hadir',
+    t_not_enough_money:'Uang tidak cukup',
+    t_insufficient_input:'Bahan kurang',
+    t_max_level:'Max level',
+    t_upgrade_started:'⬆️ Upgrade dimulai',
+    t_welcome:'🎉 Selamat datang',
+    t_building_done:'dibangun!',
+  },
+  en: {
+    /* Auth */
+    login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
+    ph_email:'name@email.com', ph_password:'your password', ph_password_new:'min. 6 chars',
+    ph_username:'letters/numbers, no spaces',
+    btn_login:'🔐 Sign In', btn_register:'📝 Create Account',
+    msg_logging:'⏳ Signing in...', msg_registering:'⏳ Registering...',
+    tagline:'Build your business empire',
+    /* Onboarding */
+    create_profile:'Create Profile', create_profile_sub:'Introduce your company to the world',
+    choose_logo:'Choose Logo', company_name_label:'Company Name',
+    company_name_ph:'e.g: Alpha Industries', btn_start:'🚀 Start Playing',
+    msg_saving:'⏳ Saving...', msg_creating_company:'Creating company...',
+    /* Header */
+    company_sub:'Business Simulator', lv:'Lv',
+    /* Tabs */
+    tab_buildings:'Buildings', tab_storage:'Storage', tab_market:'Market', tab_profile:'Profile',
+    /* Status */
+    status_not_built:'Not Built', status_ready:'Ready', status_producing:'Producing',
+    status_upgrading:'Upgrading', status_auto:'Auto', status_low_input:'Low Input',
+    /* Buttons */
+    btn_build:'Build', btn_produce:'⚡ Produce', btn_producing:'⏳...',
+    btn_upgrading:'⏳ Upgrading...', btn_max:'✓ Max', btn_auto:'Auto',
+    btn_sell:'Sell', btn_save_desc:'💾 Save Description',
+    /* Categories (building) */
+    cat_extraction:'EXTRACTION', cat_processing:'PROCESSING', cat_manufacturing:'MANUFACTURING',
+    /* Categories (item) */
+    cat_raw:'Raw Materials', cat_energy:'Energy', cat_product:'Products',
+    /* Items */
+    item_water:'Water', item_wheat:'Wheat', item_coal:'Coal',
+    item_electricity:'Electricity', item_flour:'Flour', item_bread:'Bread', item_cake:'Cake',
+    /* Buildings */
+    b_waterpump:'Water Pump', b_waterpump_desc:'Pumps clean water from the ground.',
+    b_farm:'Farm', b_farm_desc:'Grows wheat. Requires water for irrigation.',
+    b_mine:'Mine', b_mine_desc:'Mines coal. Requires water for cooling.',
+    b_powerplant:'Power Plant', b_powerplant_desc:'Burns coal into electricity.',
+    b_mill:'Mill', b_mill_desc:'Grinds wheat into flour.',
+    b_bakery:'Bakery', b_bakery_desc:'Bakes bread from flour & water.',
+    b_cakeshop:'Cake Shop', b_cakeshop_desc:'Makes premium cakes from flour, electricity & water.',
+    /* Market */
+    market_title:'Market', market_hint:'Tap to sell',
+    sell_modal_title:'Sell',
+    sell_qty:'Quantity',
+    sell_max:'MAX',
+    sell_price_per:'Price per unit',
+    sell_total:'Total revenue',
+    sell_confirm:'💰 Sell', sell_cancel:'Cancel',
+    /* Profile */
+    p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score',
+    p_info:'Company Info',
+    p_rating:'Rating', p_level:'Level', p_xp:'Total XP', p_buildings:'Buildings',
+    p_country:'Country', p_established:'Established', p_last_seen:'Last seen',
+    p_local_time:'Local time',
+    p_description:'Public Description',
+    p_description_ph:'Tell the world about your company... (max 200 chars)',
+    p_account:'Account',
+    p_language:'Language', p_preferences:'Preferences',
+    p_change_password:'Change Password', p_logout:'Log Out', p_delete:'Delete Account',
+    p_online:'Online', p_pt:'Limited Company',
+    p_copy_id:'📋 Copy ID', p_edit_profile:'✏️ Edit Profile',
+    p_units:'units',
+    /* Toast */
+    t_copied:'📋 ID copied',
+    t_desc_saved:'✅ Description saved',
+    t_password_changed:'✅ Password changed',
+    t_logout_msg:'👋 See you!',
+    t_coming_soon:'Coming soon',
+    t_not_enough_money:'Not enough money',
+    t_insufficient_input:'Insufficient input',
+    t_max_level:'Max level',
+    t_upgrade_started:'⬆️ Upgrade started',
+    t_welcome:'🎉 Welcome',
+    t_building_done:'built!',
+  }
+};
+
+/* ============================================================
+   LANGUAGE DETECTION
+   ============================================================ */
+let currentLang = (() => {
+  const saved = localStorage.getItem('jc_lang');
+  if (saved === 'id' || saved === 'en') return saved;
+  const browser = (navigator.language || 'en').toLowerCase();
+  return browser.startsWith('id') ? 'id' : 'en';
+})();
+
+function t(key){
+  return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key]) || key;
+}
+
+function setLang(lang){
+  currentLang = lang;
+  localStorage.setItem('jc_lang', lang);
+  document.documentElement.lang = lang;
+  updateStaticUI();
+  if (profile) render();
+}
