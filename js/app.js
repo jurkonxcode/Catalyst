@@ -509,90 +509,62 @@ function setBuildingView(v){
   render();
 }
 
-/* ISO MAP */
+/* Layout slot di atas background PNG (persen dari atas-kiri) */
+const SLOT_LAYOUT = [
+  { bId:'waterPump',  x:18, y:20 },
+  { bId:'lumberjack', x:50, y:15 },
+  { bId:'farm',       x:82, y:20 },
+  { bId:'mine',       x:34, y:38 },
+  { bId:'ironMine',   x:66, y:38 },
+  { bId:'sawmill',    x:18, y:57 },
+  { bId:'powerPlant', x:50, y:53 },
+  { bId:'mill',       x:82, y:57 },
+  { bId:'foundry',    x:34, y:76 },
+  { bId:'bakery',     x:66, y:76 },
+  { bId:'workshop',   x:35, y:92 },
+  { bId:'furniture',  x:65, y:92 },
+];
+
 function renderIsoMap(){
-  const bIds = Object.keys(BUILDINGS);
-  let html = '<div class="iso-scene"><div class="iso-grid">';
-  for(const bId of bIds){
-    const b = BUILDINGS[bId];
-    const st = buildings[bId];
+  let html = '<div class="iso-stage">';
+  for(const slot of SLOT_LAYOUT){
+    const b = BUILDINGS[slot.bId];
+    const st = buildings[slot.bId];
+    if(!b || !st) continue;
     const built = st.level > 0;
     const constructing = st.upgrading && st.level === 0;
     const upgrading = st.upgrading && st.level > 0;
     const producing = st.producing;
 
     let cls = 'iso-slot';
-    if(!built && !constructing) cls += ' empty';
-    else if(constructing) cls += ' constructing';
-    else if(upgrading) cls += ' upgrading';
-    else if(producing) cls += ' producing';
-
-    const emoji = (!built && !constructing) ? '➕' : b.emoji;
+    let inner = '';
     let badge = '';
-    if(constructing) badge = '🏗️';
-    else if(upgrading) badge = '⬆️' + st.level;
-    else if(built) badge = 'Lv ' + st.level;
 
-    html += `<div class="${cls}" onclick="onIsoSlotTap('${bId}')" title="${t(b.nameKey)}">
-      <div class="iso-ground"></div>
-      <div class="iso-emoji">${emoji}</div>
-      ${badge?`<div class="iso-badge">${badge}</div>`:''}
-    </div>`;
-  }
-  html += '</div></div>';
-  html += `<div class="iso-hint">${currentLang==='id'?'Tap slot untuk bangun / produksi':'Tap slot to build / produce'}</div>`;
-  return html;
-}
-
-function onIsoSlotTap(bId){
-  const st = buildings[bId];
-  if(!st.level && !st.upgrading){
-    build(bId);
-  } else if(st.upgrading){
-    toast(currentLang==='id'?'Sedang dibangun':'Under construction','info');
-  } else {
-    if(st.producing){
-      toast(currentLang==='id'?'Sedang produksi':'Producing','info');
-    } else if(hasInputs(bId)){
-      startProduction(bId);
+    if(!built && !constructing){
+      cls += ' empty';
+      inner = '<span class="slot-emoji">➕</span>';
     } else {
-      toast(currentLang==='id'?'Bahan kurang':'Insufficient input','bad');
+      cls += ' built';
+      if(constructing) cls += ' constructing';
+      else if(upgrading) cls += ' upgrading';
+      else if(producing) cls += ' producing';
+      inner = `<span class="slot-emoji">${b.emoji}</span>`;
+      if(constructing) badge = '🏗️';
+      else if(upgrading) badge = '⬆️ ' + st.level;
+      else badge = 'Lv ' + st.level;
     }
-  }
-}
 
-function renderIsoInfoPanel(){
-  const bIds = Object.keys(BUILDINGS);
-  let html = '<div class="section-title">'+(currentLang==='id'?'Daftar Bangunan':'Buildings List')+'</div>';
-  html += '<div class="iso-info-panel">';
-  for(const bId of bIds){
-    const b = BUILDINGS[bId];
-    const st = buildings[bId];
-    const built = st.level > 0;
-    let cls = 'iso-info-item' + (built?'':' empty');
-    let lvlText = built ? ('Lv '+st.level) : (st.upgrading?'🏗️':(currentLang==='id'?'Kosong':'Empty'));
-    html += `<div class="${cls}" onclick="scrollToBuilding('${bId}')">
-      <span class="emoji">${b.emoji}</span>
-      <div class="text">
-        <div class="name">${t(b.nameKey)}</div>
-        <div class="meta">${built ? t(b.categoryKey) : (currentLang==='id'?'Slot kosong':'Empty slot')}</div>
-      </div>
-      <span class="lvl">${lvlText}</span>
+    html += `<div class="${cls}" style="left:${slot.x}%;top:${slot.y}%;" onclick="onIsoSlotTap('${slot.bId}')" title="${t(b.nameKey)}">
+      ${inner}
+      ${badge?`<span class="slot-lvl">${badge}</span>`:''}
     </div>`;
   }
   html += '</div>';
+  html += `<div class="iso-hint">💡 ${currentLang==='id'?'Tap slot untuk bangun / produksi':'Tap slot to build / produce'}<br><code>--iso-bg</code> ${currentLang==='id'?'di CSS bisa diganti PNG':'in CSS can be replaced with PNG'}</div>`;
   return html;
 }
 
-function scrollToBuilding(bId){
-  buildingView = 'list';
-  localStorage.setItem('jc_building_view','list');
-  render();
-  setTimeout(()=>{
-    const el = document.querySelector(`[data-bid="${bId}"]`);
-    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
-  }, 100);
-}
+  
 
 /* BUILDINGS LIST */
 function renderBuildingsList(){
