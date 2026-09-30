@@ -25,6 +25,56 @@ function hideMsg(id){$(id).className='msg';}
 function showLoading(t='Loading...'){$('loadingText').textContent=t;$('loading').classList.remove('hidden');}
 function hideLoading(){$('loading').classList.add('hidden');}
 
+/* ============================================================
+   RANDOM COMPANY NAME GENERATOR
+   ============================================================ */
+const NAME_PREFIXES = [
+  'Alpha','Beta','Prime','Swift','Nova','Apex','Zenith','Vertex',
+  'Orbit','Pulse','Vortex','Delta','Sigma','Omega','Titan','Fusion',
+  'Crystal','Stellar','Nexus','Quantum','Echo','Rapid','Bright','Core',
+];
+const NAME_SUFFIXES = [
+  'Industries','Corp','Trading','Holdings','Group','Enterprises',
+  'Solutions','Logistics','Manufacturing','Ventures','Dynamics','Systems',
+];
+const NAME_EXTRA = [
+  'Co','Ltd','Inc','LLC','Global','International','Nusantara','Mandiri',
+];
+
+function generateRandomCompanyName(){
+  const p = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
+  const s = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
+  if(Math.random() < 0.5){
+    const e = NAME_EXTRA[Math.floor(Math.random() * NAME_EXTRA.length)];
+    return `${p} ${s} ${e}`;
+  }
+  return `${p} ${s}`;
+}
+
+function generateRandomAvatar(){
+  const avatars = ['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];
+  return avatars[Math.floor(Math.random() * avatars.length)];
+}
+
+function rollCompanyName(){
+  const input = document.getElementById('onboardCompany');
+  if(!input) return;
+  input.value = generateRandomCompanyName();
+  input.style.transition = 'all 0.3s ease';
+  input.style.background = '#e6f0fb';
+  input.style.borderColor = '#1e88e5';
+  setTimeout(() => {
+    input.style.background = '';
+    input.style.borderColor = '';
+  }, 400);
+}
+
+function prefillOnboarding(){
+  const input = document.getElementById('onboardCompany');
+  if(!input || input.value.trim()) return;
+  input.value = generateRandomCompanyName();
+}
+
 function isBeginnerBoostActive(){
   if(!profile||!profile.created_at) return false;
   const created=new Date(profile.created_at).getTime();
@@ -52,7 +102,7 @@ function updateStaticUI(){
     const lf=$('loginForm');lf.querySelector('label').textContent=t('email');$('loginEmail').placeholder=t('ph_email');lf.querySelectorAll('label')[1].textContent=t('password');$('loginPassword').placeholder=t('ph_password');$('loginBtn').textContent=t('btn_login');
     const rf=$('registerForm');const rLabels=rf.querySelectorAll('label');rLabels[0].textContent=t('email');$('regEmail').placeholder=t('ph_email');rLabels[1].textContent=t('password');$('regPassword').placeholder=t('ph_password_new');rLabels[2].textContent=t('username');$('regUsername').placeholder=t('ph_username');$('registerBtn').textContent=t('btn_register');}
   const ob=$('screen-onboarding');
-  if(ob){ob.querySelector('.auth-title').textContent=t('create_profile');ob.querySelector('.auth-sub').textContent=t('create_profile_sub');const labels=ob.querySelectorAll('label');labels[0].textContent=t('choose_logo');labels[1].textContent=t('company_name_label');$('onboardCompany').placeholder=t('company_name_ph');$('onboardBtn').textContent=t('btn_start');}
+  if(ob){ob.querySelector('.auth-title').textContent=t('create_profile');ob.querySelector('.auth-sub').textContent=t('create_profile_sub');const labels=ob.querySelectorAll('label');labels[0].textContent=t('choose_logo');labels[1].textContent=t('company_name_label');$('onboardBtn').textContent=t('btn_start');}
   const tabMap={buildings:'tab_buildings',storage:'tab_storage',exchange:'tab_exchange',search:'tab_search',chat:'tab_chat'};
   document.querySelectorAll('.tab').forEach(tabEl=>{const key=tabMap[tabEl.dataset.tab];if(key)tabEl.querySelector('.tab-label').textContent=t(key);});
 }
@@ -79,7 +129,12 @@ async function enterGame(){
   if(profile.last_emergency_grant===undefined) profile.last_emergency_grant=null;
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
-  if(!profile.company_name||profile.company_name==='PT Baru'){hideLoading();showScreen('onboarding');return;}
+  if(!profile.company_name||profile.company_name==='PT Baru'){
+    hideLoading();
+    showScreen('onboarding');
+    setTimeout(()=>prefillOnboarding(),150);
+    return;
+  }
   await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();
   subscribeRealtime();
   hideLoading();showScreen('game');render();resumeAllActions();resumeAllResearch();startBoostTimer();
@@ -98,12 +153,32 @@ async function loadGameData(){
 async function loadMarketOrders(){const{data,error}=await sb.from('market_orders').select('*').eq('status','open').order('price_per_unit',{ascending:false}).order('created_at',{ascending:true});if(error){console.warn(error);return;}const all=data||[];marketOrders=all.filter(o=>o.seller_id!==user.id);myOrders=all.filter(o=>o.seller_id===user.id);updateTickerFromMarket();}
 async function loadLeaderboard(){const{data,error}=await sb.from('profiles').select('id, username, company_name, avatar, level, xp, company_value').order('company_value',{ascending:false}).limit(50);if(error){console.warn(error);leaderboardData=[];return;}leaderboardData=data||[];}
 function updateTickerFromMarket(){const lowest={};for(const o of marketOrders){if(!lowest[o.item_id]||o.price_per_unit<lowest[o.item_id])lowest[o.item_id]=parseFloat(o.price_per_unit);}for(const itemId of Object.keys(ITEMS)){const newPrice=lowest[itemId]||null;const prev=tickerPrices[itemId]?tickerPrices[itemId].price:null;tickerPrices[itemId]={price:newPrice,prevPrice:prev};}renderTicker();}
-function renderTicker(){const bar=$('tickerBar');if(!bar)return;let html='',hasAny=false;for(const itemId of EXCHANGE_CONFIG.TICKER_ITEMS){const def=ITEMS[itemId];const tp=tickerPrices[itemId]||{};const price=tp.price,prev=tp.prevPrice;let change='flat',arrow='—',pct='';if(price!=null&&prev!=null&&prev>0){const diff=((price-prev)/prev)*100;if(diff>0.5){change='up';arrow='↑';pct=diff.toFixed(1)+'%';}else if(diff<-0.5){change='down';arrow='↓';pct=Math.abs(diff).toFixed(1)+'%';}}const priceText=price!=null?'$'+price.toFixed(2):'—';html+=`<div class="ticker-item" onclick="jumpToExchange('${itemId}')"><span class="t-emoji">${def.emoji}</span><span class="t-price">${priceText}</span><span class="t-change ${change}">${arrow}${pct?' '+pct:''}</span></div>`;if(price!=null)hasAny=true;}if(!hasAny&&marketOrders.length===0)bar.innerHTML='<div class="ticker-loading">'+t('ex_empty')+'</div>';else bar.innerHTML=html;}
+function renderTicker(){const bar=$('tickerBar');if(!bar)return;let html='',hasAny=false;for(const itemId of EXCHANGE_CONFIG.TICKER_ITEMS){const def=ITEMS[itemId];if(!def)continue;const tp=tickerPrices[itemId]||{};const price=tp.price,prev=tp.prevPrice;let change='flat',arrow='—',pct='';if(price!=null&&prev!=null&&prev>0){const diff=((price-prev)/prev)*100;if(diff>0.5){change='up';arrow='↑';pct=diff.toFixed(1)+'%';}else if(diff<-0.5){change='down';arrow='↓';pct=Math.abs(diff).toFixed(1)+'%';}}const priceText=price!=null?'$'+price.toFixed(2):'—';html+=`<div class="ticker-item" onclick="jumpToExchange('${itemId}')"><span class="t-emoji">${def.emoji}</span><span class="t-price">${priceText}</span><span class="t-change ${change}">${arrow}${pct?' '+pct:''}</span></div>`;if(price!=null)hasAny=true;}if(!hasAny&&marketOrders.length===0)bar.innerHTML='<div class="ticker-loading">'+t('ex_empty')+'</div>';else bar.innerHTML=html;}
 function jumpToExchange(itemId){marketFilter=itemId;currentTab='exchange';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const tabEl=document.querySelector('.tab[data-tab="exchange"]');if(tabEl)tabEl.classList.add('active');render();}
 function subscribeRealtime(){if(realtimeChannel)sb.removeChannel(realtimeChannel);realtimeChannel=sb.channel('jc-market').on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},async()=>{await loadMarketOrders();if(currentTab==='exchange')render();}).subscribe();}
 
 document.querySelectorAll('.avatar-opt').forEach(opt=>{opt.addEventListener('click',()=>{document.querySelectorAll('.avatar-opt').forEach(o=>o.classList.remove('selected'));opt.classList.add('selected');});});
-async function submitOnboarding(){hideMsg('onboardMsg');const company=$('onboardCompany').value.trim();const avatar=document.querySelector('.avatar-opt.selected')?.dataset.emoji||'🏭';if(company.length<3)return showMsg('onboardMsg','Min. 3 chars','error');if(company.length>30)return showMsg('onboardMsg','Max. 30 chars','error');$('onboardBtn').disabled=true;$('onboardBtn').textContent=t('msg_saving');showLoading(t('msg_creating_company'));const{error}=await sb.from('profiles').update({company_name:company,avatar}).eq('id',user.id);if(error){hideLoading();$('onboardBtn').disabled=false;$('onboardBtn').textContent=t('btn_start');return showMsg('onboardMsg','❌ '+error.message,'error');}profile.company_name=company;profile.avatar=avatar;await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();subscribeRealtime();hideLoading();showScreen('game');render();startBoostTimer();toast(t('t_welcome')+', '+company+'!','good');}
+
+async function submitOnboarding(){
+  hideMsg('onboardMsg');
+  let company=$('onboardCompany').value.trim();
+  // Auto-generate kalau kosong
+  if(!company){
+    company = generateRandomCompanyName();
+    $('onboardCompany').value = company;
+  }
+  if(company.length<3)return showMsg('onboardMsg','Min. 3 karakter','error');
+  if(company.length>30)return showMsg('onboardMsg','Max. 30 karakter','error');
+  const avatar=document.querySelector('.avatar-opt.selected')?.dataset.emoji||generateRandomAvatar();
+  $('onboardBtn').disabled=true;$('onboardBtn').textContent=t('msg_saving');
+  showLoading(t('msg_creating_company'));
+  const{error}=await sb.from('profiles').update({company_name:company,avatar}).eq('id',user.id);
+  if(error){hideLoading();$('onboardBtn').disabled=false;$('onboardBtn').textContent=t('btn_start');return showMsg('onboardMsg','❌ '+error.message,'error');}
+  profile.company_name=company;profile.avatar=avatar;
+  await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();subscribeRealtime();
+  hideLoading();showScreen('game');render();startBoostTimer();
+  toast(t('t_welcome')+', '+company+'!','good');
+}
 
 async function syncProfile(){const cv=getCompanyValue();profile.company_value=cv;await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);if(profile.cash>=5000) advanceTutorial(6);}
 async function syncBuilding(bId){const b=buildings[bId];await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null},{onConflict:'user_id,building_id'});}
@@ -127,22 +202,9 @@ async function claimEmergencyGrant(){if(!canClaimEmergencyGrant()){const remain=
 function renderEmergencyCard(){if(!profile)return '';if(profile.cash>=100)return '';if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Bantuan Darurat':'Emergency Grant'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Tersedia dalam':'Available in'} ${hours}j</div></div></div></div>`;}return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Uang Menipis!':'Low Cash!'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Klaim bantuan darurat $500 (sekali per 24 jam)':'Claim $500 emergency grant (once per 24h)'}</div></div></div><button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang==='id'?'Klaim $500':'Claim $500'}</button></div>`;}
 
 /* SEARCH + CHAT (placeholder) */
-function renderSearch(){
-  return `<div class="ex-empty">
-    <span class="big">🔍</span>
-    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('search_title')}</div>
-    <div style="font-size:11.5px;">${t('coming_soon_desc')}</div>
-  </div>`;
-}
-function renderChat(){
-  return `<div class="ex-empty">
-    <span class="big">💬</span>
-    <div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('chat_title')}</div>
-    <div style="font-size:11.5px;">${t('coming_soon_desc')}</div>
-  </div>`;
-}
+function renderSearch(){return `<div class="ex-empty"><span class="big">🔍</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('search_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
+function renderChat(){return `<div class="ex-empty"><span class="big">💬</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('chat_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
-/* BUILD — dengan konfirmasi & error handling */
 async function build(bId){
   const st=buildings[bId];
   if(st.level>0 || st.upgrading) return;
@@ -151,8 +213,8 @@ async function build(bId){
   const remaining = profile.cash - c;
   if (remaining < 500) {
     const msg = currentLang === 'id'
-      ? `⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nKamu mungkin kesulitan bangun bangunan lain setelah ini.\n\nLanjut?`
-      : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nYou may struggle to build other buildings.\n\nContinue?`;
+      ? `⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nLanjut?`
+      : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
   const oldCash = profile.cash, oldUpgrading = st.upgrading, oldEndsAt = st.upgradeEndsAt;
@@ -252,11 +314,7 @@ function renderHistoryTab(){let html='<div class="section-title">'+t('history_ti
 function renderResearchTab(){if(Object.keys(research).length===0)return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';let html='<div class="section-title">'+t('research_title')+'</div>';html+='<div style="background:var(--surface-2);padding:12px;border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">'+t('research_intro')+'</div>';for(const itemId of RESEARCH_CONFIG.PILOT_ITEMS){const def=ITEMS[itemId];const r=research[itemId];const maxed=r.level>=RESEARCH_CONFIG.MAX_LEVEL;const cost=getResearchCost(r.level);const dur=Math.round(getResearchDuration(r.level)/1000);const canAfford=profile.cash>=cost;let statusText='';let btnHtml='';let progHtml='';if(maxed){statusText='<span class="status auto">'+t('research_max')+'</span>';btnHtml='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';}else if(r.researching){statusText='<span class="status busy">'+t('research_in_progress')+'</span>';btnHtml='<button class="btn btn-purple btn-sm" disabled>⏳ '+t('research_in_progress')+'</button>';progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';}else{statusText='<span class="status idle">'+t('status_ready')+'</span>';const dis=!canAfford?'disabled':'';btnHtml='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';}html+='<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+def.emoji+'</div><div class="b-info"><div class="b-name">'+t(def.nameKey)+'</div><div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div><div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div></div><div>'+statusText+'</div></div>'+progHtml+btnHtml+'</div>';}return html;}
 function renderComingSoon(){return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
-function openProfile(){
-  currentTab='profile';
-  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-  render();
-}
+function openProfile(){currentTab='profile';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));render();}
 
 function render(){
   if(!profile)return;
@@ -323,9 +381,9 @@ function renderOneBuilding(bId,b){
 
 function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}html+='</div>';if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;else for(const o of filteredMarket)html+=renderOrderRow(o,false);html+='</div>';return html;}
 function setFilter(f){marketFilter=f;render();}
-function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
+function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];if(!def)return '';const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
 
-function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v10 · Search & Chat</div>`;}
+function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v11 · Random Company</div>`;}
 async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
 function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
 async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
