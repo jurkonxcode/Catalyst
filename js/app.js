@@ -527,14 +527,24 @@ const SLOT_LAYOUT = [
 
 function renderIsoMap(){
   let html = '<div class="iso-stage">';
-  for(const slot of SLOT_LAYOUT){
-    const b = BUILDINGS[slot.bId];
-    const st = buildings[slot.bId];
-    if(!b || !st) continue;
-    const built = st.level > 0;
-    const constructing = st.upgrading && st.level === 0;
-    const upgrading = st.upgrading && st.level > 0;
-    const producing = st.producing;
+  const SLOT_LAYOUT = [
+  // Baris atas (ladang hijau bagian atas)
+  { bId:'waterPump',  x:25, y:30 },
+  { bId:'lumberjack', x:50, y:22 },
+  { bId:'farm',       x:75, y:30 },
+  // Baris tengah (rumah merah & sekitar)
+  { bId:'mine',       x:38, y:48 },
+  { bId:'ironMine',   x:62, y:48 },
+  // Baris bawah (ladang kuning & hijau)
+  { bId:'sawmill',    x:25, y:67 },
+  { bId:'powerPlant', x:50, y:62 },
+  { bId:'mill',       x:75, y:67 },
+  // Baris paling bawah
+  { bId:'foundry',    x:30, y:82 },
+  { bId:'bakery',     x:70, y:82 },
+  { bId:'workshop',   x:35, y:93 },
+  { bId:'furniture',  x:65, y:93 },
+];
 
     let cls = 'iso-slot';
     let inner = '';
