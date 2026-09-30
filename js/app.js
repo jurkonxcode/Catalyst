@@ -374,10 +374,223 @@ async function upgrade(bId){
 }
 function scheduleUpgradeFinish(bId){const st=buildings[bId];const remain=st.upgradeEndsAt-Date.now();if(remain<=0){finishUpgrade(bId);return;}clearTimeout(st._upTimer);st._upTimer=setTimeout(()=>finishUpgrade(bId),remain);}
 async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)return;const wasNewBuild=st.level===0;st.upgrading=false;st.upgradeEndsAt=0;st.level+=1;await syncBuilding(bId);render();if(wasNewBuild){toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');}else{toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');}}
-async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
-async function startProduction(bId){const st=buildings[bId];if(!st.level||st.producing||st.upgrading)return;if(!hasInputs(bId)){if(!st.auto)toast(t('t_insufficient_input'),'bad');return;}const b=BUILDINGS[bId];for(const it of Object.keys(b.inputs))inventory[it].qty-=getInputQty(bId,it);st.producing=true;st.endsAt=Date.now()+getProductionDuration(bId);const promises=[syncBuilding(bId)];for(const it of Object.keys(b.inputs))promises.push(syncInventory(it));await Promise.all(promises);render();scheduleFinish(bId);}
+async function toggleAuto(bId){
+  const st = buildings[bId];
+  st.auto = !st.auto;
+  await syncBuilding(bId);
+  render();
+  if(st.auto && !st.producing && !st.upgrading && hasInputs(bId)) autoStartProduction(bId);
+}const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
+/* ============================================================
+   PRODUCTION SYSTEM — Duration-Based
+   ============================================================ */
+function getBaseTimePerUnit(bId){
+  const b = BUILDINGS[bId];
+  const lvl = buildings[bId].level || 1;
+  const rawBase = b.duration / b.output.qty;
+  const speedMult = 1 + (lvl - 1) * 0.15;
+  return rawBase / speedMult;
+}
+function getQtyPerUnitInput(bId, itemId){
+  const b = BUILDINGS[bId];
+  return b.inputs[itemId] / b.output.qty;
+}
+function getMaxQtyByResources(bId){
+  const b = BUILDINGS[bId];
+  let maxQty = Infinity;
+  for(const itemId of Object.keys(b.inputs)){
+    const perUnit = getQtyPerUnitInput(bId, itemId);
+    if(perUnit <= 0) continue;
+    const available = Math.floor(inventory[itemId].qty / perUnit);
+    maxQty = Math.min(maxQty, available);
+  }
+  return maxQty === Infinity ? 0 : maxQty;
+}
+function formatDuration(sec){
+  if(sec < 60) return sec + 's';
+  if(sec < 3600) return Math.floor(sec/60) + 'm ' + (sec%60 ? (sec%60)+'s' : '');
+  return Math.floor(sec/3600) + 'j ' + Math.floor((sec%3600)/60) + 'm';
+}
+
+function openProductionModal(bId){
+  const st = buildings[bId];
+  if(!st.level || st.producing || st.upgrading) return;
+  const maxQty = getMaxQtyByResources(bId);
+  if(maxQty <= 0) return toast(t('t_insufficient_input'),'bad');
+  window._prodModal = { bId, selected:'30s', maxQty };
+  renderProductionModal();
+}
+function closeProdModal(){
+  $('modalContainer').innerHTML='';
+  window._prodModal=null;
+}
+function selectDuration(opt){
+  if(!window._prodModal) return;
+  window._prodModal.selected = opt;
+  renderProductionModal();
+}
+function renderProductionModal(){
+  const modal = window._prodModal;
+  if(!modal) return;
+  const {bId, selected, maxQty} = modal;
+  const b = BUILDINGS[bId];
+  const baseTime = getBaseTimePerUnit(bId);
+  
+  const presets = [
+    {label:'5s', ms:5000},
+    {label:'30s', ms:30000},
+    {label:'5m', ms:300000},
+    {label:'15m', ms:900000},
+    {label:'1j', ms:3600000},
+    {label:'MAX', ms:0},
+  ];
+  let qty, durationMs;
+  if(selected === 'MAX'){
+    qty = maxQty;
+    durationMs = Math.floor(qty * baseTime);
+  } else {
+    const p = presets.find(x => x.label === selected);
+    durationMs = p.ms;
+    qty = Math.min(maxQty, Math.floor(durationMs / baseTime));
+  }
+  if(qty <= 0) return toast(t('t_insufficient_input'),'bad');
+  
+  const inputsRequired = {};
+  for(const itemId of Object.keys(b.inputs)){
+    inputsRequired[itemId] = Math.ceil(qty * getQtyPerUnitInput(bId, itemId));
+  }
+  const durSec = Math.floor(durationMs / 1000);
+  const durText = formatDuration(durSec);
+  const outDef = ITEMS[b.output.item];
+  
+  $('modalContainer').innerHTML = `
+    <div class="modal-backdrop" id="prodBackdrop" onclick="if(event.target.id==='prodBackdrop')closeProdModal()">
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-grip"></div>
+        <div class="modal-title">${b.emoji} ${currentLang==='id'?'Produksi':'Production'} ${t(b.nameKey)}</div>
+        
+        <div class="modal-field">
+          <label>${currentLang==='id'?'Pilih Durasi':'Duration'}</label>
+          <div class="duration-grid">
+            ${presets.map(p => 
+              `<button class="duration-btn ${selected===p.label?'active':''}" onclick="selectDuration('${p.label}')">${p.label}</button>`
+            ).join('')}
+          </div>
+        </div>
+        
+        <div class="modal-info">
+          <div class="modal-info-row">
+            <span class="k">${currentLang==='id'?'Hasil':'Output'}</span>
+            <span class="v">${nf.format(qty)}× ${outDef.emoji} ${t(outDef.nameKey)}</span>
+          </div>
+          <div class="modal-info-row">
+            <span class="k">${currentLang==='id'?'Selesai dalam':'Finish in'}</span>
+            <span class="v">${durText}</span>
+          </div>
+        </div>
+        
+        <div class="modal-field">
+          <label>${currentLang==='id'?'Bahan Dibutuhkan':'Materials'}</label>
+          <div class="material-list">
+            ${Object.entries(inputsRequired).map(([itemId, need]) => {
+              const have = inventory[itemId].qty;
+              const enough = have >= need;
+              return `<div class="material-row ${enough?'ok':'bad'}">
+                <span>${ITEMS[itemId].emoji} ${t(ITEMS[itemId].nameKey)}</span>
+                <span>${nf.format(need)} / ${nf.format(have)}</span>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+        
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="closeProdModal()">${t('sell_cancel')}</button>
+          <button class="btn btn-green" onclick="confirmProduction()">⚡ ${currentLang==='id'?'Mulai':'Start'}</button>
+        </div>
+      </div>
+    </div>`;
+}
+async function confirmProduction(){
+  const modal = window._prodModal;
+  if(!modal) return;
+  const {bId, selected, maxQty} = modal;
+  const st = buildings[bId];
+  const b = BUILDINGS[bId];
+  const baseTime = getBaseTimePerUnit(bId);
+  
+  const presets = [
+    {label:'5s', ms:5000}, {label:'30s', ms:30000}, {label:'5m', ms:300000},
+    {label:'15m', ms:900000}, {label:'1j', ms:3600000},
+  ];
+  let qty, durationMs;
+  if(selected === 'MAX'){
+    qty = maxQty;
+    durationMs = Math.floor(qty * baseTime);
+  } else {
+    const p = presets.find(x => x.label === selected);
+    durationMs = p.ms;
+    qty = Math.min(maxQty, Math.floor(durationMs / baseTime));
+  }
+  if(qty <= 0) return toast(t('t_insufficient_input'),'bad');
+  
+  for(const itemId of Object.keys(b.inputs)){
+    const need = Math.ceil(qty * getQtyPerUnitInput(bId, itemId));
+    inventory[itemId].qty -= need;
+  }
+  st.producing = true;
+  st.endsAt = Date.now() + durationMs;
+  st.prodQty = qty;
+  
+  const promises = [syncBuilding(bId)];
+  for(const itemId of Object.keys(b.inputs)) promises.push(syncInventory(itemId));
+  await Promise.all(promises);
+  
+  closeProdModal();
+  render();
+  scheduleFinish(bId);
+  toast('⚡ ' + qty + '× ' + t(ITEMS[b.output.item].nameKey) + ' • ' + formatDuration(Math.floor(durationMs/1000)), 'good');
+}
+
+/* Auto-produce helper (dipakai kalau toggle Auto ON) */
+async function autoStartProduction(bId){
+  const st = buildings[bId];
+  if(!st.level || st.producing || st.upgrading) return;
+  if(!hasInputs(bId)) return;
+  const b = BUILDINGS[bId];
+  const baseTime = getBaseTimePerUnit(bId);
+  const maxQty = getMaxQtyByResources(bId);
+  const durationMs = 5000;
+  const qty = Math.min(maxQty, Math.floor(durationMs / baseTime));
+  if(qty <= 0) return;
+  for(const itemId of Object.keys(b.inputs)){
+    inventory[itemId].qty -= Math.ceil(qty * getQtyPerUnitInput(bId, itemId));
+  }
+  st.producing = true;
+  st.endsAt = Date.now() + durationMs;
+  st.prodQty = qty;
+  const promises = [syncBuilding(bId)];
+  for(const itemId of Object.keys(b.inputs)) promises.push(syncInventory(itemId));
+  await Promise.all(promises);
+  render();
+  scheduleFinish(bId);
+}const st=buildings[bId];if(!st.level||st.producing||st.upgrading)return;if(!hasInputs(bId)){if(!st.auto)toast(t('t_insufficient_input'),'bad');return;}const b=BUILDINGS[bId];for(const it of Object.keys(b.inputs))inventory[it].qty-=getInputQty(bId,it);st.producing=true;st.endsAt=Date.now()+getProductionDuration(bId);const promises=[syncBuilding(bId)];for(const it of Object.keys(b.inputs))promises.push(syncInventory(it));await Promise.all(promises);render();scheduleFinish(bId);}
 function scheduleFinish(bId){const st=buildings[bId];const remain=st.endsAt-Date.now();if(remain<=0){finishProduction(bId);return;}clearTimeout(st._timer);st._timer=setTimeout(()=>finishProduction(bId),remain);}
-async function finishProduction(bId){const st=buildings[bId];if(!st.producing)return;const b=BUILDINGS[bId];const qty=getOutputQty(bId);st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;addXP(qty);await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));if(b.output.item==='apples') await advanceTutorial(3);if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);else render();}
+async function finishProduction(bId){
+  const st = buildings[bId];
+  if(!st.producing) return;
+  const b = BUILDINGS[bId];
+  const qty = st.prodQty || getOutputQty(bId);
+  st.producing = false;
+  st.endsAt = 0;
+  st.prodQty = 0;
+  inventory[b.output.item].qty += qty;
+  addXP(qty);
+  await Promise.all([syncBuilding(bId), syncInventory(b.output.item), syncProfile()]);
+  await logTransaction('produce', b.output.item, qty, 0, t(BUILDINGS[bId].nameKey));
+  if(b.output.item === 'apples') await advanceTutorial(3);
+  if(st.auto && hasInputs(bId) && !st.upgrading) setTimeout(() => autoStartProduction(bId), 50);
+  else render();
+}const st=buildings[bId];if(!st.producing)return;const b=BUILDINGS[bId];const qty=getOutputQty(bId);st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;addXP(qty);await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));if(b.output.item==='apples') await advanceTutorial(3);if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);else render();}
 
 /* TUTORIAL */
 async function advanceTutorial(stepDone){
