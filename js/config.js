@@ -22,14 +22,12 @@ function getResearchDuration(currentLevel) { return Math.floor(RESEARCH_CONFIG.b
 const BEGINNER_BOOST_HOURS = 24;
 const BEGINNER_BOOST_MULT = 2;
 
-/* MARKET MAKER — pasokan dasar dari NPC dengan harga tetap */
 const MARKET_MAKER = [
   { item: 'seeds', price: 0.20 },
   { item: 'water', price: 0.30 },
   { item: 'coal',  price: 0.40 },
 ];
 
-/* TUTORIAL — alur agrikultur */
 const TUTORIAL_STEPS = [
   { id:1, icon:'🛒', reward:100, stepKey:'tut_step_1' },
   { id:2, icon:'💧', reward:100, stepKey:'tut_step_2' },
@@ -42,42 +40,38 @@ const TUTORIAL_STEPS = [
 const LEVEL_REWARDS = { 2: 500, 3: 1000, 4: 2000, 5: 3000, 6: 5000, 7: 8000 };
 
 const ITEMS = {
-  // Bahan Baku
   seeds:       { nameKey:'item_seeds',       emoji:'🫘', categoryKey:'cat_raw',      basePrice:0.20 },
   water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',      basePrice:1 },
   wood:        { nameKey:'item_wood',        emoji:'🪵', categoryKey:'cat_raw',      basePrice:4 },
   wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',      basePrice:5 },
   coal:        { nameKey:'item_coal',        emoji:'⚫', categoryKey:'cat_raw',      basePrice:6 },
   ironOre:     { nameKey:'item_iron_ore',    emoji:'🪨', categoryKey:'cat_raw',      basePrice:10 },
-  // Energi
   electricity: { nameKey:'item_electricity', emoji:'⚡', categoryKey:'cat_energy',   basePrice:8 },
-  // Material Olahan
   planks:      { nameKey:'item_planks',      emoji:'🪚', categoryKey:'cat_material', basePrice:15 },
   flour:       { nameKey:'item_flour',       emoji:'🥣', categoryKey:'cat_material', basePrice:18 },
   steel:       { nameKey:'item_steel',       emoji:'🔩', categoryKey:'cat_material', basePrice:30 },
-  // Produk Jadi
   apples:      { nameKey:'item_apples',      emoji:'🍎', categoryKey:'cat_product',  basePrice:2.00 },
   bread:       { nameKey:'item_bread',       emoji:'🍞', categoryKey:'cat_product',  basePrice:50 },
   tools:       { nameKey:'item_tools',       emoji:'🔧', categoryKey:'cat_product',  basePrice:80 },
   furniture:   { nameKey:'item_furniture',   emoji:'🪑', categoryKey:'cat_product',  basePrice:150 },
 };
 
+/* ============================================================
+   BUILDINGS — dengan workers & wage (gaji per jam)
+   ============================================================ */
 const BUILDINGS = {
-  // Ekstraksi
-  waterPump:{categoryKey:'cat_extraction',nameKey:'b_waterpump',emoji:'🚰',descKey:'b_waterpump_desc',baseCost:500,duration:3000,upgradeTime:15,inputs:{},output:{item:'water',qty:25}},
-  lumberjack:{categoryKey:'cat_extraction',nameKey:'b_lumberjack',emoji:'🪓',descKey:'b_lumberjack_desc',baseCost:1000,duration:4000,upgradeTime:20,inputs:{},output:{item:'wood',qty:15}},
-  farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:1500,duration:5000,upgradeTime:25,inputs:{seeds:5,water:15},output:{item:'apples',qty:5}},
-  mine:{categoryKey:'cat_extraction',nameKey:'b_mine',emoji:'⛏️',descKey:'b_mine_desc',baseCost:2000,duration:6000,upgradeTime:30,inputs:{},output:{item:'coal',qty:12}},
-  ironMine:{categoryKey:'cat_extraction',nameKey:'b_ironmine',emoji:'🪨',descKey:'b_ironmine_desc',baseCost:2800,duration:7000,upgradeTime:35,inputs:{},output:{item:'ironOre',qty:10}},
-  // Pengolahan
-  sawmill:{categoryKey:'cat_processing',nameKey:'b_sawmill',emoji:'🪚',descKey:'b_sawmill_desc',baseCost:4000,duration:6000,upgradeTime:45,inputs:{wood:15},output:{item:'planks',qty:10}},
-  powerPlant:{categoryKey:'cat_processing',nameKey:'b_powerplant',emoji:'🏭',descKey:'b_powerplant_desc',baseCost:5000,duration:7000,upgradeTime:50,inputs:{coal:10},output:{item:'electricity',qty:25}},
-  mill:{categoryKey:'cat_processing',nameKey:'b_mill',emoji:'⚙️',descKey:'b_mill_desc',baseCost:5500,duration:6000,upgradeTime:50,inputs:{wheat:15},output:{item:'flour',qty:10}},
-  foundry:{categoryKey:'cat_processing',nameKey:'b_foundry',emoji:'🔥',descKey:'b_foundry_desc',baseCost:7500,duration:8000,upgradeTime:60,inputs:{ironOre:10,coal:10},output:{item:'steel',qty:8}},
-  // Manufaktur
-  bakery:{categoryKey:'cat_manufacturing',nameKey:'b_bakery',emoji:'🥖',descKey:'b_bakery_desc',baseCost:12000,duration:9000,upgradeTime:70,inputs:{flour:10,water:10},output:{item:'bread',qty:8}},
-  workshop:{categoryKey:'cat_manufacturing',nameKey:'b_workshop',emoji:'🔨',descKey:'b_workshop_desc',baseCost:18000,duration:10000,upgradeTime:80,inputs:{steel:8,planks:8},output:{item:'tools',qty:5}},
-  furniture:{categoryKey:'cat_manufacturing',nameKey:'b_furniture',emoji:'🪑',descKey:'b_furniture_desc',baseCost:28000,duration:12000,upgradeTime:100,inputs:{planks:10,tools:3},output:{item:'furniture',qty:4}},
+  waterPump:{categoryKey:'cat_extraction',nameKey:'b_waterpump',emoji:'🚰',descKey:'b_waterpump_desc',baseCost:500,duration:3000,upgradeTime:15,workers:10,wage:5,inputs:{},output:{item:'water',qty:25}},
+  lumberjack:{categoryKey:'cat_extraction',nameKey:'b_lumberjack',emoji:'🪓',descKey:'b_lumberjack_desc',baseCost:1000,duration:4000,upgradeTime:20,workers:15,wage:5,inputs:{},output:{item:'wood',qty:15}},
+  farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:1500,duration:5000,upgradeTime:25,workers:20,wage:8,inputs:{seeds:5,water:15},output:{item:'apples',qty:5}},
+  mine:{categoryKey:'cat_extraction',nameKey:'b_mine',emoji:'⛏️',descKey:'b_mine_desc',baseCost:2000,duration:6000,upgradeTime:30,workers:25,wage:8,inputs:{},output:{item:'coal',qty:12}},
+  ironMine:{categoryKey:'cat_extraction',nameKey:'b_ironmine',emoji:'🪨',descKey:'b_ironmine_desc',baseCost:2800,duration:7000,upgradeTime:35,workers:30,wage:10,inputs:{},output:{item:'ironOre',qty:10}},
+  sawmill:{categoryKey:'cat_processing',nameKey:'b_sawmill',emoji:'🪚',descKey:'b_sawmill_desc',baseCost:4000,duration:6000,upgradeTime:45,workers:40,wage:10,inputs:{wood:15},output:{item:'planks',qty:10}},
+  powerPlant:{categoryKey:'cat_processing',nameKey:'b_powerplant',emoji:'🏭',descKey:'b_powerplant_desc',baseCost:5000,duration:7000,upgradeTime:50,workers:50,wage:12,inputs:{coal:10},output:{item:'electricity',qty:25}},
+  mill:{categoryKey:'cat_processing',nameKey:'b_mill',emoji:'⚙️',descKey:'b_mill_desc',baseCost:5500,duration:6000,upgradeTime:50,workers:40,wage:10,inputs:{wheat:15},output:{item:'flour',qty:10}},
+  foundry:{categoryKey:'cat_processing',nameKey:'b_foundry',emoji:'🔥',descKey:'b_foundry_desc',baseCost:7500,duration:8000,upgradeTime:60,workers:60,wage:15,inputs:{ironOre:10,coal:10},output:{item:'steel',qty:8}},
+  bakery:{categoryKey:'cat_manufacturing',nameKey:'b_bakery',emoji:'🥖',descKey:'b_bakery_desc',baseCost:12000,duration:9000,upgradeTime:70,workers:50,wage:12,inputs:{flour:10,water:10},output:{item:'bread',qty:8}},
+  workshop:{categoryKey:'cat_manufacturing',nameKey:'b_workshop',emoji:'🔨',descKey:'b_workshop_desc',baseCost:18000,duration:10000,upgradeTime:80,workers:70,wage:15,inputs:{steel:8,planks:8},output:{item:'tools',qty:5}},
+  furniture:{categoryKey:'cat_manufacturing',nameKey:'b_furniture',emoji:'🪑',descKey:'b_furniture_desc',baseCost:28000,duration:12000,upgradeTime:100,workers:80,wage:18,inputs:{planks:10,tools:3},output:{item:'furniture',qty:4}},
 };
 
 const I18N = {
@@ -144,7 +138,7 @@ const I18N = {
     tx_build:'Bangun', tx_upgrade:'Upgrade', tx_produce:'Produksi',
     tx_sell_instant:'Jual Instan', tx_sell_order:'Pasang Order',
     tx_buy_order:'Beli Order', tx_cancel_order:'Batal Order', tx_emergency_grant:'Bantuan Darurat',
-    tx_buy_market_maker:'Beli dari Market Maker',
+    tx_buy_market_maker:'Beli dari Market Maker', tx_wages:'Gaji Pekerja',
     research_title:'Riset Teknologi',
     research_empty:'Belum ada riset. Mulai naikkan bintang barangmu!',
     research_intro:'Naikkan kualitas barang untuk jual lebih mahal di Exchange.',
@@ -175,7 +169,9 @@ const I18N = {
     save_success:'✅ Progress tersimpan!',
     guest_banner:'Akun Tamu — progress bisa hilang',
     guest_banner_btn:'Simpan',
-    free_farm_toast:'🎁 Kamu dapat Farm gratis!',
+    workers_label:'Pekerja',
+    wage_label:'Gaji/jam',
+    wages_cost:'Gaji Pekerja',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -240,7 +236,7 @@ const I18N = {
     tx_build:'Build', tx_upgrade:'Upgrade', tx_produce:'Production',
     tx_sell_instant:'Instant Sell', tx_sell_order:'Post Order',
     tx_buy_order:'Buy Order', tx_cancel_order:'Cancel Order', tx_emergency_grant:'Emergency Grant',
-    tx_buy_market_maker:'Market Maker Purchase',
+    tx_buy_market_maker:'Market Maker Purchase', tx_wages:'Wages',
     research_title:'Technology Research',
     research_empty:'No research yet. Start increasing item stars!',
     research_intro:'Increase item quality to sell at higher prices on Exchange.',
@@ -271,7 +267,9 @@ const I18N = {
     save_success:'✅ Progress saved!',
     guest_banner:'Guest Account — progress may be lost',
     guest_banner_btn:'Save',
-    free_farm_toast:'🎁 You got a free Farm!',
+    workers_label:'Workers',
+    wage_label:'Wage/h',
+    wages_cost:'Labor Cost',
   }
 };
 
@@ -289,4 +287,4 @@ function setLang(lang){
   document.documentElement.lang = lang;
   if (typeof updateStaticUI === 'function') updateStaticUI();
   if (typeof profile !== 'undefined' && profile && typeof render === 'function') render();
-    }
+}
