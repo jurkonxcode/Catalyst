@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#070a10">
 <title>Catalyst</title>
-<link rel="stylesheet" href="css/style.css?v=100">
+<link rel="stylesheet" href="css/style.css?v=19">
 </head>
 <body>
 
@@ -33,31 +33,6 @@
   </div>
 </section>
 
-<section id="screen-onboarding" class="screen">
-  <div class="auth-wrap">
-    <div class="auth-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);">✨</div>
-    <div class="auth-title">Buat Profil</div>
-    <div class="auth-sub">Kenalkan perusahaanmu</div>
-    <div id="onboardMsg" class="msg"></div>
-    <div class="field">
-      <label>Logo</label>
-      <div class="avatar-grid">
-        <div class="avatar-opt" data-emoji="🏭">🏭</div>
-        <div class="avatar-opt" data-emoji="⚡">⚡</div>
-        <div class="avatar-opt" data-emoji="🚀">🚀</div>
-        <div class="avatar-opt" data-emoji="🌾">🌾</div>
-        <div class="avatar-opt" data-emoji="⛏️">⛏️</div>
-        <div class="avatar-opt" data-emoji="💎">💎</div>
-        <div class="avatar-opt" data-emoji="🏗️">🏗️</div>
-        <div class="avatar-opt" data-emoji="🔧">🔧</div>
-      </div>
-    </div>
-    <div class="field"><label>Nama Perusahaan</label>
-      <input type="text" id="onboardCompany" placeholder="PT Cahaya Energi" maxlength="30"></div>
-    <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai</button>
-  </div>
-</section>
-
 <section id="screen-game" class="screen">
   <header>
     <div class="hdr-left">
@@ -76,15 +51,15 @@
     </div>
   </header>
 
-  <div class="ticker" id="tickerBar"><div class="ticker-loading">Memuat harga...</div></div>
+  <div class="ticker" id="tickerBar"><div class="ticker-loading">Memuat...</div></div>
   <main class="content" id="gameContent"></main>
 
   <nav class="tabs">
-    <button class="tab active" data-tab="buildings"><span class="tab-icon">🏭</span><span class="tab-label">Bangunan</span></button>
-    <button class="tab" data-tab="storage"><span class="tab-icon">📦</span><span class="tab-label">Gudang</span></button>
-    <button class="tab" data-tab="exchange"><span class="tab-icon">💱</span><span class="tab-label">Exchange</span></button>
-    <button class="tab" data-tab="search"><span class="tab-icon">🔍</span><span class="tab-label">Cari</span></button>
+    <button class="tab active" data-tab="buildings"><span class="tab-icon">🗺️</span><span class="tab-label">Map</span></button>
+    <button class="tab" data-tab="storage"><span class="tab-icon">📦</span><span class="tab-label">Warehouse</span></button>
+    <button class="tab" data-tab="search"><span class="tab-icon">🔍</span><span class="tab-label">Search</span></button>
     <button class="tab" data-tab="chat"><span class="tab-icon">💬</span><span class="tab-label">Chat</span></button>
+    <button class="tab" data-tab="exchange"><span class="tab-icon">💱</span><span class="tab-label">Exchange</span></button>
   </nav>
 </section>
 
@@ -96,7 +71,7 @@
 <div id="modalContainer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=100"></script>
-<script src="js/app.js?v=100"></script>
+<script src="js/config.js?v=19"></script>
+<script src="js/app.js?v=19"></script>
 </body>
 </html>
