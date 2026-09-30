@@ -6,62 +6,75 @@ const CONFIG = { MAX_LEVEL: 10, PRICE_RECOVER: 1.008, MIN_PRICE: 0.4 };
 const EXCHANGE_CONFIG = {
   MAX_SELL_ORDERS: 5,
   MIN_PRICE: 0.01,
-  TICKER_ITEMS: ['water','wood','wheat','coal','ironOre','electricity','planks','flour','steel','bread','tools','furniture'],
+  TICKER_ITEMS: ['seeds','water','wheat','wood','coal','ironOre','electricity','planks','flour','steel','bread','apples'],
 };
 
 const RESEARCH_CONFIG = {
   MAX_LEVEL: 5,
-  PILOT_ITEMS: ['water', 'wheat', 'bread'],
+  PILOT_ITEMS: ['water','wheat','bread'],
   baseCost: 500,
   baseDuration: 30000,
 };
 
-function getResearchCost(currentLevel) {
-  return Math.floor(RESEARCH_CONFIG.baseCost * Math.pow(2, currentLevel));
-}
-function getResearchDuration(currentLevel) {
-  return Math.floor(RESEARCH_CONFIG.baseDuration * Math.pow(2, currentLevel));
-}
+function getResearchCost(currentLevel) { return Math.floor(RESEARCH_CONFIG.baseCost * Math.pow(2, currentLevel)); }
+function getResearchDuration(currentLevel) { return Math.floor(RESEARCH_CONFIG.baseDuration * Math.pow(2, currentLevel)); }
 
 const BEGINNER_BOOST_HOURS = 24;
 const BEGINNER_BOOST_MULT = 2;
 
+/* MARKET MAKER — pasokan dasar dari NPC dengan harga tetap */
+const MARKET_MAKER = [
+  { item: 'seeds', price: 0.20 },
+  { item: 'water', price: 0.30 },
+  { item: 'coal',  price: 0.40 },
+];
+
+/* TUTORIAL — alur agrikultur */
 const TUTORIAL_STEPS = [
-  { id:1, icon:'🏗️', reward:100, stepKey:'tut_step_1' },
-  { id:2, icon:'⚡', reward:150, stepKey:'tut_step_2' },
-  { id:3, icon:'💰', reward:200, stepKey:'tut_step_3' },
-  { id:4, icon:'📢', reward:250, stepKey:'tut_step_4' },
-  { id:5, icon:'🛒', reward:300, stepKey:'tut_step_5' },
+  { id:1, icon:'🛒', reward:100, stepKey:'tut_step_1' },
+  { id:2, icon:'💧', reward:100, stepKey:'tut_step_2' },
+  { id:3, icon:'🍎', reward:150, stepKey:'tut_step_3' },
+  { id:4, icon:'💰', reward:200, stepKey:'tut_step_4' },
+  { id:5, icon:'🏗️', reward:250, stepKey:'tut_step_5' },
   { id:6, icon:'💵', reward:500, stepKey:'tut_step_6' },
 ];
 
 const LEVEL_REWARDS = { 2: 500, 3: 1000, 4: 2000, 5: 3000, 6: 5000, 7: 8000 };
 
 const ITEMS = {
+  // Bahan Baku
+  seeds:       { nameKey:'item_seeds',       emoji:'🫘', categoryKey:'cat_raw',      basePrice:0.20 },
   water:       { nameKey:'item_water',       emoji:'💧', categoryKey:'cat_raw',      basePrice:1 },
   wood:        { nameKey:'item_wood',        emoji:'🪵', categoryKey:'cat_raw',      basePrice:4 },
   wheat:       { nameKey:'item_wheat',       emoji:'🌾', categoryKey:'cat_raw',      basePrice:5 },
   coal:        { nameKey:'item_coal',        emoji:'⚫', categoryKey:'cat_raw',      basePrice:6 },
   ironOre:     { nameKey:'item_iron_ore',    emoji:'🪨', categoryKey:'cat_raw',      basePrice:10 },
+  // Energi
   electricity: { nameKey:'item_electricity', emoji:'⚡', categoryKey:'cat_energy',   basePrice:8 },
+  // Material Olahan
   planks:      { nameKey:'item_planks',      emoji:'🪚', categoryKey:'cat_material', basePrice:15 },
   flour:       { nameKey:'item_flour',       emoji:'🥣', categoryKey:'cat_material', basePrice:18 },
   steel:       { nameKey:'item_steel',       emoji:'🔩', categoryKey:'cat_material', basePrice:30 },
+  // Produk Jadi
+  apples:      { nameKey:'item_apples',      emoji:'🍎', categoryKey:'cat_product',  basePrice:2.00 },
   bread:       { nameKey:'item_bread',       emoji:'🍞', categoryKey:'cat_product',  basePrice:50 },
   tools:       { nameKey:'item_tools',       emoji:'🔧', categoryKey:'cat_product',  basePrice:80 },
   furniture:   { nameKey:'item_furniture',   emoji:'🪑', categoryKey:'cat_product',  basePrice:150 },
 };
 
 const BUILDINGS = {
+  // Ekstraksi
   waterPump:{categoryKey:'cat_extraction',nameKey:'b_waterpump',emoji:'🚰',descKey:'b_waterpump_desc',baseCost:500,duration:3000,upgradeTime:15,inputs:{},output:{item:'water',qty:25}},
   lumberjack:{categoryKey:'cat_extraction',nameKey:'b_lumberjack',emoji:'🪓',descKey:'b_lumberjack_desc',baseCost:1000,duration:4000,upgradeTime:20,inputs:{},output:{item:'wood',qty:15}},
-  farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:1500,duration:5000,upgradeTime:25,inputs:{water:10},output:{item:'wheat',qty:15}},
+  farm:{categoryKey:'cat_extraction',nameKey:'b_farm',emoji:'🌱',descKey:'b_farm_desc',baseCost:1500,duration:5000,upgradeTime:25,inputs:{seeds:5,water:15},output:{item:'apples',qty:5}},
   mine:{categoryKey:'cat_extraction',nameKey:'b_mine',emoji:'⛏️',descKey:'b_mine_desc',baseCost:2000,duration:6000,upgradeTime:30,inputs:{},output:{item:'coal',qty:12}},
   ironMine:{categoryKey:'cat_extraction',nameKey:'b_ironmine',emoji:'🪨',descKey:'b_ironmine_desc',baseCost:2800,duration:7000,upgradeTime:35,inputs:{},output:{item:'ironOre',qty:10}},
+  // Pengolahan
   sawmill:{categoryKey:'cat_processing',nameKey:'b_sawmill',emoji:'🪚',descKey:'b_sawmill_desc',baseCost:4000,duration:6000,upgradeTime:45,inputs:{wood:15},output:{item:'planks',qty:10}},
   powerPlant:{categoryKey:'cat_processing',nameKey:'b_powerplant',emoji:'🏭',descKey:'b_powerplant_desc',baseCost:5000,duration:7000,upgradeTime:50,inputs:{coal:10},output:{item:'electricity',qty:25}},
   mill:{categoryKey:'cat_processing',nameKey:'b_mill',emoji:'⚙️',descKey:'b_mill_desc',baseCost:5500,duration:6000,upgradeTime:50,inputs:{wheat:15},output:{item:'flour',qty:10}},
   foundry:{categoryKey:'cat_processing',nameKey:'b_foundry',emoji:'🔥',descKey:'b_foundry_desc',baseCost:7500,duration:8000,upgradeTime:60,inputs:{ironOre:10,coal:10},output:{item:'steel',qty:8}},
+  // Manufaktur
   bakery:{categoryKey:'cat_manufacturing',nameKey:'b_bakery',emoji:'🥖',descKey:'b_bakery_desc',baseCost:12000,duration:9000,upgradeTime:70,inputs:{flour:10,water:10},output:{item:'bread',qty:8}},
   workshop:{categoryKey:'cat_manufacturing',nameKey:'b_workshop',emoji:'🔨',descKey:'b_workshop_desc',baseCost:18000,duration:10000,upgradeTime:80,inputs:{steel:8,planks:8},output:{item:'tools',qty:5}},
   furniture:{categoryKey:'cat_manufacturing',nameKey:'b_furniture',emoji:'🪑',descKey:'b_furniture_desc',baseCost:28000,duration:12000,upgradeTime:100,inputs:{planks:10,tools:3},output:{item:'furniture',qty:4}},
@@ -85,12 +98,12 @@ const I18N = {
     btn_max:'✓ Max', btn_auto:'Auto', btn_sell:'Jual', btn_save_desc:'💾 Simpan Deskripsi',
     cat_extraction:'EKSTRAKSI', cat_processing:'PENGOLAHAN', cat_manufacturing:'MANUFAKTUR',
     cat_raw:'Bahan Baku', cat_energy:'Energi', cat_material:'Material Olahan', cat_product:'Produk Jadi',
-    item_water:'Air', item_wood:'Kayu', item_wheat:'Gandum', item_coal:'Batu Bara', item_iron_ore:'Biji Besi',
+    item_seeds:'Benih', item_water:'Air', item_wood:'Kayu', item_wheat:'Gandum', item_coal:'Batu Bara', item_iron_ore:'Biji Besi',
     item_electricity:'Listrik', item_planks:'Papan', item_flour:'Tepung', item_steel:'Baja',
-    item_bread:'Roti', item_tools:'Perkakas', item_furniture:'Furnitur',
+    item_apples:'Apel', item_bread:'Roti', item_tools:'Perkakas', item_furniture:'Furnitur',
     b_waterpump:'Water Pump', b_waterpump_desc:'Memompa air dari tanah.',
     b_lumberjack:'Lumberjack', b_lumberjack_desc:'Menebang pohon untuk kayu.',
-    b_farm:'Farm', b_farm_desc:'Menanam gandum. Butuh air untuk irigasi.',
+    b_farm:'Farm', b_farm_desc:'Menanam apel. Butuh benih & air.',
     b_mine:'Mine', b_mine_desc:'Menambang batu bara.',
     b_ironmine:'Iron Mine', b_ironmine_desc:'Menambang biji besi.',
     b_sawmill:'Sawmill', b_sawmill_desc:'Memotong kayu menjadi papan.',
@@ -104,8 +117,9 @@ const I18N = {
     sell_modal_title:'Jual', sell_qty:'Jumlah', sell_max:'MAX', sell_price_per:'Harga per unit',
     sell_total:'Total pendapatan', sell_confirm:'💰 Jual', sell_cancel:'Batal',
     ex_create_order:'Pasang Order Jual', ex_my_orders:'Order Saya', ex_global_market:'Pasar Global',
-    ex_orders:'order', ex_all:'Semua', ex_empty:'Belum ada order. Pasang order jual untuk memulai!',
+    ex_orders:'order', ex_all:'Semua', ex_empty:'Belum ada order pemain. Beli dari Market Maker di atas!',
     ex_buy:'Beli', ex_you:'Kamu', ex_loading:'Memuat harga pasar...',
+    mm_title:'Pasokan Dasar',
     p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score', p_info:'Info Perusahaan',
     p_rating:'Rating', p_level:'Level', p_xp:'Total XP', p_buildings:'Bangunan', p_country:'Negara',
     p_established:'Terdaftar', p_last_seen:'Terakhir dilihat', p_local_time:'Waktu lokal',
@@ -130,6 +144,7 @@ const I18N = {
     tx_build:'Bangun', tx_upgrade:'Upgrade', tx_produce:'Produksi',
     tx_sell_instant:'Jual Instan', tx_sell_order:'Pasang Order',
     tx_buy_order:'Beli Order', tx_cancel_order:'Batal Order', tx_emergency_grant:'Bantuan Darurat',
+    tx_buy_market_maker:'Beli dari Market Maker',
     research_title:'Riset Teknologi',
     research_empty:'Belum ada riset. Mulai naikkan bintang barangmu!',
     research_intro:'Naikkan kualitas barang untuk jual lebih mahal di Exchange.',
@@ -143,9 +158,12 @@ const I18N = {
     tutorial_title:'Tutorial Pemula', tutorial_skip:'Lewati',
     tutorial_progress:'Progress', tutorial_total_reward:'Hadiah total',
     tutorial_done:'🎓 Tutorial selesai! Selamat!', tutorial_skipped:'Tutorial dilewati',
-    tut_step_1:'Bangun bangunan pertama', tut_step_2:'Selesaikan 1 produksi',
-    tut_step_3:'Jual barang instan', tut_step_4:'Pasang order di Exchange',
-    tut_step_5:'Beli dari pemain lain', tut_step_6:'Capai $5.000 kas',
+    tut_step_1:'Beli Benih di Exchange',
+    tut_step_2:'Beli Air di Exchange',
+    tut_step_3:'Panen Apel di Farm',
+    tut_step_4:'Jual Apel di Exchange',
+    tut_step_5:'Bangun bangunan kedua',
+    tut_step_6:'Capai $5.000 kas',
     levelup_reward:'🎁 Bonus Level',
     boost_active:'Beginner Boost Aktif', boost_desc:'Produksi & upgrade 2x lebih cepat',
     boost_remains:'Tersisa', boost_expired:'Boost berakhir',
@@ -155,8 +173,9 @@ const I18N = {
     save_later:'Lanjut Main',
     save_submit:'Simpan & Daftar',
     save_success:'✅ Progress tersimpan!',
-    guest_banner:'⚠️ Akun Tamu — progress bisa hilang',
+    guest_banner:'Akun Tamu — progress bisa hilang',
     guest_banner_btn:'Simpan',
+    free_farm_toast:'🎁 Kamu dapat Farm gratis!',
   },
   en: {
     login:'Sign In', register:'Register', email:'Email', password:'Password', username:'Username',
@@ -175,12 +194,12 @@ const I18N = {
     btn_max:'✓ Max', btn_auto:'Auto', btn_sell:'Sell', btn_save_desc:'💾 Save Description',
     cat_extraction:'EXTRACTION', cat_processing:'PROCESSING', cat_manufacturing:'MANUFACTURING',
     cat_raw:'Raw Materials', cat_energy:'Energy', cat_material:'Materials', cat_product:'Products',
-    item_water:'Water', item_wood:'Wood', item_wheat:'Wheat', item_coal:'Coal', item_iron_ore:'Iron Ore',
+    item_seeds:'Seeds', item_water:'Water', item_wood:'Wood', item_wheat:'Wheat', item_coal:'Coal', item_iron_ore:'Iron Ore',
     item_electricity:'Electricity', item_planks:'Planks', item_flour:'Flour', item_steel:'Steel',
-    item_bread:'Bread', item_tools:'Tools', item_furniture:'Furniture',
+    item_apples:'Apples', item_bread:'Bread', item_tools:'Tools', item_furniture:'Furniture',
     b_waterpump:'Water Pump', b_waterpump_desc:'Pumps water from the ground.',
     b_lumberjack:'Lumberjack', b_lumberjack_desc:'Cuts trees for wood.',
-    b_farm:'Farm', b_farm_desc:'Grows wheat. Requires water for irrigation.',
+    b_farm:'Farm', b_farm_desc:'Grows apples. Requires seeds & water.',
     b_mine:'Mine', b_mine_desc:'Mines coal.',
     b_ironmine:'Iron Mine', b_ironmine_desc:'Mines iron ore.',
     b_sawmill:'Sawmill', b_sawmill_desc:'Cuts wood into planks.',
@@ -194,8 +213,9 @@ const I18N = {
     sell_modal_title:'Sell', sell_qty:'Quantity', sell_max:'MAX', sell_price_per:'Price per unit',
     sell_total:'Total revenue', sell_confirm:'💰 Sell', sell_cancel:'Cancel',
     ex_create_order:'Create Sell Order', ex_my_orders:'My Orders', ex_global_market:'Global Market',
-    ex_orders:'orders', ex_all:'All', ex_empty:'No orders yet. Post a sell order to start!',
+    ex_orders:'orders', ex_all:'All', ex_empty:'No player orders yet. Buy from Market Maker above!',
     ex_buy:'Buy', ex_you:'You', ex_loading:'Loading market prices...',
+    mm_title:'Basic Supplies',
     p_rankings:'Rankings', p_company_value:'Company Value', p_eva:'EVA Score', p_info:'Company Info',
     p_rating:'Rating', p_level:'Level', p_xp:'Total XP', p_buildings:'Buildings', p_country:'Country',
     p_established:'Established', p_last_seen:'Last seen', p_local_time:'Local time',
@@ -220,6 +240,7 @@ const I18N = {
     tx_build:'Build', tx_upgrade:'Upgrade', tx_produce:'Production',
     tx_sell_instant:'Instant Sell', tx_sell_order:'Post Order',
     tx_buy_order:'Buy Order', tx_cancel_order:'Cancel Order', tx_emergency_grant:'Emergency Grant',
+    tx_buy_market_maker:'Market Maker Purchase',
     research_title:'Technology Research',
     research_empty:'No research yet. Start increasing item stars!',
     research_intro:'Increase item quality to sell at higher prices on Exchange.',
@@ -233,9 +254,12 @@ const I18N = {
     tutorial_title:'Beginner Tutorial', tutorial_skip:'Skip',
     tutorial_progress:'Progress', tutorial_total_reward:'Total reward',
     tutorial_done:'🎓 Tutorial complete! Congratulations!', tutorial_skipped:'Tutorial skipped',
-    tut_step_1:'Build your first building', tut_step_2:'Complete 1 production',
-    tut_step_3:'Sell items instantly', tut_step_4:'Post order on Exchange',
-    tut_step_5:'Buy from another player', tut_step_6:'Reach $5,000 cash',
+    tut_step_1:'Buy Seeds at Exchange',
+    tut_step_2:'Buy Water at Exchange',
+    tut_step_3:'Harvest Apples at Farm',
+    tut_step_4:'Sell Apples at Exchange',
+    tut_step_5:'Build your second building',
+    tut_step_6:'Reach $5,000 cash',
     levelup_reward:'🎁 Level Bonus',
     boost_active:'Beginner Boost Active', boost_desc:'Production & upgrade 2x faster',
     boost_remains:'Remaining', boost_expired:'Boost expired',
@@ -245,8 +269,9 @@ const I18N = {
     save_later:'Keep Playing',
     save_submit:'Save & Register',
     save_success:'✅ Progress saved!',
-    guest_banner:'⚠️ Guest Account — progress may be lost',
+    guest_banner:'Guest Account — progress may be lost',
     guest_banner_btn:'Save',
+    free_farm_toast:'🎁 You got a free Farm!',
   }
 };
 
@@ -264,4 +289,4 @@ function setLang(lang){
   document.documentElement.lang = lang;
   if (typeof updateStaticUI === 'function') updateStaticUI();
   if (typeof profile !== 'undefined' && profile && typeof render === 'function') render();
-      }
+    }
