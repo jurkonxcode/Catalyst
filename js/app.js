@@ -14,8 +14,7 @@ let modalItemId = null, modalSellOrderItem = null;
 let marketFilter = 'all';
 let realtimeChannel = null;
 let isGuest = false;
-let buildingView = localStorage.getItem('jc_building_view') || 'map';
-
+let buildingView = 'list';
 const $ = id => document.getElementById(id);
 const nf = new Intl.NumberFormat('en-US');
 const money = n => '$' + nf.format(Math.floor(n));
