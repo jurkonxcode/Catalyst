@@ -13,6 +13,7 @@ let progressRaf = null, researchRaf = null, boostRaf = null;
 let modalItemId = null, modalSellOrderItem = null;
 let marketFilter = 'all';
 let realtimeChannel = null;
+let isGuest = false;
 
 const $ = id => document.getElementById(id);
 const nf = new Intl.NumberFormat('en-US');
@@ -26,65 +27,51 @@ function showLoading(t='Loading...'){$('loadingText').textContent=t;$('loading')
 function hideLoading(){$('loading').classList.add('hidden');}
 
 /* ============================================================
-   RANDOM COMPANY NAME GENERATOR
+   RANDOM COMPANY NAME
    ============================================================ */
-const NAME_PREFIXES = [
-  'Alpha','Beta','Prime','Swift','Nova','Apex','Zenith','Vertex',
-  'Orbit','Pulse','Vortex','Delta','Sigma','Omega','Titan','Fusion',
-  'Crystal','Stellar','Nexus','Quantum','Echo','Rapid','Bright','Core',
-];
-const NAME_SUFFIXES = [
-  'Industries','Corp','Trading','Holdings','Group','Enterprises',
-  'Solutions','Logistics','Manufacturing','Ventures','Dynamics','Systems',
-];
-const NAME_EXTRA = [
-  'Co','Ltd','Inc','LLC','Global','International','Nusantara','Mandiri',
-];
+const NAME_PREFIXES = ['Alpha','Beta','Prime','Swift','Nova','Apex','Zenith','Vertex','Orbit','Pulse','Vortex','Delta','Sigma','Omega','Titan','Fusion','Crystal','Stellar','Nexus','Quantum','Echo','Rapid','Bright','Core'];
+const NAME_SUFFIXES = ['Industries','Corp','Trading','Holdings','Group','Enterprises','Solutions','Logistics','Manufacturing','Ventures','Dynamics','Systems'];
+const NAME_EXTRA = ['Co','Ltd','Inc','LLC','Global','International','Nusantara','Mandiri'];
 
 function generateRandomCompanyName(){
   const p = NAME_PREFIXES[Math.floor(Math.random() * NAME_PREFIXES.length)];
   const s = NAME_SUFFIXES[Math.floor(Math.random() * NAME_SUFFIXES.length)];
-  if(Math.random() < 0.5){
-    const e = NAME_EXTRA[Math.floor(Math.random() * NAME_EXTRA.length)];
-    return `${p} ${s} ${e}`;
-  }
+  if(Math.random() < 0.5){const e = NAME_EXTRA[Math.floor(Math.random() * NAME_EXTRA.length)];return `${p} ${s} ${e}`;}
   return `${p} ${s}`;
 }
 
-function generateRandomAvatar(){
-  const avatars = ['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];
-  return avatars[Math.floor(Math.random() * avatars.length)];
+function generateRandomAvatar(){const avatars = ['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];return avatars[Math.floor(Math.random() * avatars.length)];}
+
+/* ============================================================
+   PIXEL AVATAR GENERATOR
+   ============================================================ */
+function generatePixelAvatar(){
+  const size = 8;
+  const canvas = document.createElement('canvas');
+  canvas.width = size; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#1a1c20';
+  ctx.fillRect(0, 0, size, size);
+  const palette = ['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#22d3ee','#f472b6','#34d399','#fb923c','#38bdf8','#a3e635','#facc15','#c084fc','#2dd4bf','#fde047'];
+  const color = palette[Math.floor(Math.random() * palette.length)];
+  ctx.fillStyle = color;
+  const half = Math.ceil(size / 2);
+  for (let x = 0; x < half; x++) {
+    for (let y = 0; y < size; y++) {
+      if (Math.random() > 0.55) {
+        ctx.fillRect(x, y, 1, 1);
+        ctx.fillRect(size - 1 - x, y, 1, 1);
+      }
+    }
+  }
+  return canvas.toDataURL('image/png');
 }
 
-function rollCompanyName(){
-  const input = document.getElementById('onboardCompany');
-  if(!input) return;
-  input.value = generateRandomCompanyName();
-  input.style.transition = 'all 0.3s ease';
-  input.style.background = '#e6f0fb';
-  input.style.borderColor = '#1e88e5';
-  setTimeout(() => {
-    input.style.background = '';
-    input.style.borderColor = '';
-  }, 400);
-}
+function isPixelAvatar(avatar){return typeof avatar === 'string' && avatar.indexOf('data:image') === 0;}
+function avatarHtml(avatar){if(!avatar) avatar = '🏭';if(isPixelAvatar(avatar)){return `<img src="${avatar}" alt="">`;}return avatar;}
 
-function prefillOnboarding(){
-  const input = document.getElementById('onboardCompany');
-  if(!input || input.value.trim()) return;
-  input.value = generateRandomCompanyName();
-}
-
-function isBeginnerBoostActive(){
-  if(!profile||!profile.created_at) return false;
-  const created=new Date(profile.created_at).getTime();
-  return Date.now() < created + BEGINNER_BOOST_HOURS*3600*1000;
-}
-function getBoostRemaining(){
-  if(!isBeginnerBoostActive()) return 0;
-  const created=new Date(profile.created_at).getTime();
-  return (created+BEGINNER_BOOST_HOURS*3600*1000)-Date.now();
-}
+function isBeginnerBoostActive(){if(!profile||!profile.created_at) return false;const created=new Date(profile.created_at).getTime();return Date.now() < created + BEGINNER_BOOST_HOURS*3600*1000;}
+function getBoostRemaining(){if(!isBeginnerBoostActive()) return 0;const created=new Date(profile.created_at).getTime();return (created+BEGINNER_BOOST_HOURS*3600*1000)-Date.now();}
 function getBoostMult(){return isBeginnerBoostActive()?BEGINNER_BOOST_MULT:1;}
 function formatBoostTime(ms){const t=Math.floor(ms/1000);const h=Math.floor(t/3600);const m=Math.floor((t%3600)/60);const s=t%60;return `${h}j ${m}m ${s}s`;}
 
@@ -101,8 +88,6 @@ function updateStaticUI(){
   if(authScreen){authScreen.querySelector('.auth-sub').textContent=t('tagline');$('tabLogin').textContent=t('login');$('tabRegister').textContent=t('register');
     const lf=$('loginForm');lf.querySelector('label').textContent=t('email');$('loginEmail').placeholder=t('ph_email');lf.querySelectorAll('label')[1].textContent=t('password');$('loginPassword').placeholder=t('ph_password');$('loginBtn').textContent=t('btn_login');
     const rf=$('registerForm');const rLabels=rf.querySelectorAll('label');rLabels[0].textContent=t('email');$('regEmail').placeholder=t('ph_email');rLabels[1].textContent=t('password');$('regPassword').placeholder=t('ph_password_new');rLabels[2].textContent=t('username');$('regUsername').placeholder=t('ph_username');$('registerBtn').textContent=t('btn_register');}
-  const ob=$('screen-onboarding');
-  if(ob){ob.querySelector('.auth-title').textContent=t('create_profile');ob.querySelector('.auth-sub').textContent=t('create_profile_sub');const labels=ob.querySelectorAll('label');labels[0].textContent=t('choose_logo');labels[1].textContent=t('company_name_label');$('onboardBtn').textContent=t('btn_start');}
   const tabMap={buildings:'tab_buildings',storage:'tab_storage',exchange:'tab_exchange',search:'tab_search',chat:'tab_chat'};
   document.querySelectorAll('.tab').forEach(tabEl=>{const key=tabMap[tabEl.dataset.tab];if(key)tabEl.querySelector('.tab-label').textContent=t(key);});
 }
@@ -114,9 +99,43 @@ async function syncResearch(itemId){const r=research[itemId];await sb.from('rese
 
 function switchTab(tab){$('tabLogin').classList.toggle('active',tab==='login');$('tabRegister').classList.toggle('active',tab==='register');$('loginForm').style.display=tab==='login'?'block':'none';$('registerForm').style.display=tab==='register'?'block':'none';hideMsg('authMsg');}
 
-async function doLogin(e){e.preventDefault();hideMsg('authMsg');const email=$('loginEmail').value.trim(),password=$('loginPassword').value;$('loginBtn').disabled=true;$('loginBtn').textContent=t('msg_logging');showLoading(t('msg_logging'));const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){hideLoading();$('loginBtn').disabled=false;$('loginBtn').textContent=t('btn_login');return showMsg('authMsg','❌ '+error.message,'error');}user=data.user;await enterGame();}
-async function doRegister(e){e.preventDefault();hideMsg('authMsg');const email=$('regEmail').value.trim(),password=$('regPassword').value,username=$('regUsername').value.trim();if(password.length<6)return showMsg('authMsg','Password min 6','error');if(!/^[a-zA-Z0-9_]{3,20}$/.test(username))return showMsg('authMsg','Username: 3-20 a-z/0-9/_','error');$('registerBtn').disabled=true;$('registerBtn').textContent=t('msg_registering');showLoading(t('msg_registering'));const{data,error}=await sb.auth.signUp({email,password,options:{data:{username}}});if(error){hideLoading();$('registerBtn').disabled=false;$('registerBtn').textContent=t('btn_register');return showMsg('authMsg','❌ '+error.message,'error');}user=data.user;await enterGame();}
-async function doLogout(){if(!confirm(currentLang==='id'?'Keluar?':'Log out?'))return;try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}if(progressRaf)cancelAnimationFrame(progressRaf);if(researchRaf)cancelAnimationFrame(researchRaf);if(boostRaf)cancelAnimationFrame(boostRaf);Object.values(buildings).forEach(b=>{clearTimeout(b._timer);clearTimeout(b._upTimer);});Object.values(research).forEach(r=>clearTimeout(r._timer));if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}await sb.auth.signOut();user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};$('loginForm').reset();$('registerForm').reset();showScreen('auth');switchTab('login');toast(t('t_logout_msg'),'info');}
+async function doLogin(e){e.preventDefault();hideMsg('authMsg');const email=$('loginEmail').value.trim(),password=$('loginPassword').value;$('loginBtn').disabled=true;$('loginBtn').textContent=t('msg_logging');showLoading(t('msg_logging'));const{data,error}=await sb.auth.signInWithPassword({email,password});if(error){hideLoading();$('loginBtn').disabled=false;$('loginBtn').textContent=t('btn_login');return showMsg('authMsg','❌ '+error.message,'error');}user=data.user;isGuest=false;await enterGame();}
+
+async function doRegister(e){e.preventDefault();hideMsg('authMsg');const email=$('regEmail').value.trim(),password=$('regPassword').value,username=$('regUsername').value.trim();if(password.length<6)return showMsg('authMsg','Password min 6','error');if(!/^[a-zA-Z0-9_]{3,20}$/.test(username))return showMsg('authMsg','Username: 3-20 a-z/0-9/_','error');$('registerBtn').disabled=true;$('registerBtn').textContent=t('msg_registering');showLoading(t('msg_registering'));const{data,error}=await sb.auth.signUp({email,password,options:{data:{username}}});if(error){hideLoading();$('registerBtn').disabled=false;$('registerBtn').textContent=t('btn_register');return showMsg('authMsg','❌ '+error.message,'error');}user=data.user;isGuest=false;await enterGame();}
+
+async function doLogout(){
+  if(!confirm(currentLang==='id'?'Keluar?':'Log out?'))return;
+  try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
+  if(progressRaf)cancelAnimationFrame(progressRaf);
+  if(researchRaf)cancelAnimationFrame(researchRaf);
+  if(boostRaf)cancelAnimationFrame(boostRaf);
+  Object.values(buildings).forEach(b=>{clearTimeout(b._timer);clearTimeout(b._upTimer);});
+  Object.values(research).forEach(r=>clearTimeout(r._timer));
+  if(realtimeChannel){sb.removeChannel(realtimeChannel);realtimeChannel=null;}
+  await sb.auth.signOut();
+  user=null;profile=null;buildings={};inventory={};marketOrders=[];myOrders=[];leaderboardData=null;transactions=[];research={};
+  $('loginForm').reset();$('registerForm').reset();
+  showScreen('auth');switchTab('login');
+  toast(t('t_logout_msg'),'info');
+}
+
+/* ============================================================
+   AUTO-GENERATE PROFILE UNTUK GUEST
+   ============================================================ */
+async function ensureGuestProfile(){
+  const {data: existing} = await sb.from('profiles').select('id, company_name').eq('id', user.id).maybeSingle();
+  if(existing && existing.company_name && existing.company_name !== 'PT Baru') return;
+  const name = generateRandomCompanyName();
+  const avatar = generatePixelAvatar();
+  const username = 'guest_' + user.id.slice(0, 6);
+  await sb.from('profiles').upsert({
+    id: user.id,
+    username: username,
+    company_name: name,
+    avatar: avatar,
+    cash: 500,
+  }, {onConflict: 'id'});
+}
 
 async function enterGame(){
   showLoading('Loading...');
@@ -127,14 +146,22 @@ async function enterGame(){
   if(profile.tutorial_dismissed===undefined) profile.tutorial_dismissed=false;
   if(profile.level_rewards_claimed===undefined) profile.level_rewards_claimed='';
   if(profile.last_emergency_grant===undefined) profile.last_emergency_grant=null;
+
+  // Kalau belum punya nama perusahaan, auto-generate (untuk guest baru)
+  if(!profile.company_name || profile.company_name === 'PT Baru'){
+    const name = generateRandomCompanyName();
+    const avatar = generatePixelAvatar();
+    await sb.from('profiles').update({company_name: name, avatar: avatar}).eq('id', user.id);
+    profile.company_name = name;
+    profile.avatar = avatar;
+  }
+
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
-  if(!profile.company_name||profile.company_name==='PT Baru'){
-    hideLoading();
-    showScreen('onboarding');
-    setTimeout(()=>prefillOnboarding(),150);
-    return;
-  }
+
+  // Deteksi apakah guest
+  isGuest = !!(user && user.is_anonymous);
+
   await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();
   subscribeRealtime();
   hideLoading();showScreen('game');render();resumeAllActions();resumeAllResearch();startBoostTimer();
@@ -157,29 +184,6 @@ function renderTicker(){const bar=$('tickerBar');if(!bar)return;let html='',hasA
 function jumpToExchange(itemId){marketFilter=itemId;currentTab='exchange';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const tabEl=document.querySelector('.tab[data-tab="exchange"]');if(tabEl)tabEl.classList.add('active');render();}
 function subscribeRealtime(){if(realtimeChannel)sb.removeChannel(realtimeChannel);realtimeChannel=sb.channel('jc-market').on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},async()=>{await loadMarketOrders();if(currentTab==='exchange')render();}).subscribe();}
 
-document.querySelectorAll('.avatar-opt').forEach(opt=>{opt.addEventListener('click',()=>{document.querySelectorAll('.avatar-opt').forEach(o=>o.classList.remove('selected'));opt.classList.add('selected');});});
-
-async function submitOnboarding(){
-  hideMsg('onboardMsg');
-  let company=$('onboardCompany').value.trim();
-  // Auto-generate kalau kosong
-  if(!company){
-    company = generateRandomCompanyName();
-    $('onboardCompany').value = company;
-  }
-  if(company.length<3)return showMsg('onboardMsg','Min. 3 karakter','error');
-  if(company.length>30)return showMsg('onboardMsg','Max. 30 karakter','error');
-  const avatar=document.querySelector('.avatar-opt.selected')?.dataset.emoji||generateRandomAvatar();
-  $('onboardBtn').disabled=true;$('onboardBtn').textContent=t('msg_saving');
-  showLoading(t('msg_creating_company'));
-  const{error}=await sb.from('profiles').update({company_name:company,avatar}).eq('id',user.id);
-  if(error){hideLoading();$('onboardBtn').disabled=false;$('onboardBtn').textContent=t('btn_start');return showMsg('onboardMsg','❌ '+error.message,'error');}
-  profile.company_name=company;profile.avatar=avatar;
-  await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();subscribeRealtime();
-  hideLoading();showScreen('game');render();startBoostTimer();
-  toast(t('t_welcome')+', '+company+'!','good');
-}
-
 async function syncProfile(){const cv=getCompanyValue();profile.company_value=cv;await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);if(profile.cash>=5000) advanceTutorial(6);}
 async function syncBuilding(bId){const b=buildings[bId];await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null},{onConflict:'user_id,building_id'});}
 async function syncInventory(itemId){await sb.from('inventory').upsert({user_id:user.id,item_id:itemId,qty:inventory[itemId].qty},{onConflict:'user_id,item_id'});}
@@ -201,7 +205,84 @@ function getEmergencyCooldownRemaining(){if(!profile||!profile.last_emergency_gr
 async function claimEmergencyGrant(){if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return toast(currentLang==='id'?`⏳ Tunggu ${hours} jam lagi`:`⏳ Wait ${hours}h more`,'info');}const amount=500;profile.cash+=amount;profile.last_emergency_grant=new Date().toISOString();await sb.from('profiles').update({cash:profile.cash,last_emergency_grant:profile.last_emergency_grant}).eq('id',user.id);await logTransaction('emergency_grant',null,0,amount,'Emergency grant');render();toast('🚨 +'+money(amount)+' '+(currentLang==='id'?'bantuan darurat':'emergency grant'),'good');}
 function renderEmergencyCard(){if(!profile)return '';if(profile.cash>=100)return '';if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Bantuan Darurat':'Emergency Grant'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Tersedia dalam':'Available in'} ${hours}j</div></div></div></div>`;}return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Uang Menipis!':'Low Cash!'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Klaim bantuan darurat $500 (sekali per 24 jam)':'Claim $500 emergency grant (once per 24h)'}</div></div></div><button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang==='id'?'Klaim $500':'Claim $500'}</button></div>`;}
 
-/* SEARCH + CHAT (placeholder) */
+/* ============================================================
+   SAVE PROGRESS MODAL (untuk guest)
+   ============================================================ */
+function openSaveModal(){
+  if(!isGuest) return;
+  $('modalContainer').innerHTML = `
+    <div class="modal-backdrop" id="saveBackdrop" onclick="if(event.target.id==='saveBackdrop')closeModal()">
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-grip"></div>
+        <div class="modal-title">💾 ${t('save_title')}</div>
+        <div style="background:#fff5d9;border:1px solid #f0c674;padding:12px;border-radius:10px;margin-bottom:14px;font-size:12px;color:#8a6000;line-height:1.5;">
+          ⚠️ ${t('guest_banner')}
+        </div>
+        <div style="font-size:12.5px;color:var(--text-dim);line-height:1.6;margin-bottom:14px;">
+          ${t('save_desc')}
+        </div>
+        <div class="modal-field">
+          <label>${t('email')}</label>
+          <input type="email" id="saveEmail" placeholder="${t('ph_email')}" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;">
+        </div>
+        <div class="modal-field">
+          <label>${t('password')}</label>
+          <input type="password" id="savePassword" placeholder="${t('ph_password_new')}" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;">
+        </div>
+        <div class="modal-field">
+          <label>${t('username')}</label>
+          <input type="text" id="saveUsername" placeholder="${t('ph_username')}" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;">
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="closeModal()">${t('save_later')}</button>
+          <button class="btn btn-green" id="saveBtn" onclick="submitSave()">${t('save_submit')}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+async function submitSave(){
+  const email = $('saveEmail').value.trim();
+  const password = $('savePassword').value;
+  const username = $('saveUsername').value.trim();
+
+  if(!email || !password || !username) return toast(currentLang==='id'?'Isi semua field':'Fill all fields','bad');
+  if(password.length < 6) return toast('Password min 6','bad');
+  if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return toast('Username: 3-20 a-z/0-9/_','bad');
+
+  $('saveBtn').disabled = true;
+  $('saveBtn').textContent = '⏳...';
+
+  try {
+    // Cek username sudah ada atau belum
+    const {data: existing} = await sb.from('profiles').select('id').eq('username', username).neq('id', user.id).maybeSingle();
+    if(existing){
+      $('saveBtn').disabled = false;
+      $('saveBtn').textContent = t('save_submit');
+      return toast(currentLang==='id'?'Username sudah dipakai':'Username taken','bad');
+    }
+
+    // Upgrade anonymous user jadi real user
+    const {error} = await sb.auth.updateUser({ email, password });
+    if(error) throw error;
+
+    // Update username di profile
+    await sb.from('profiles').update({ username }).eq('id', user.id);
+    profile.username = username;
+    isGuest = false;
+
+    closeModal();
+    render();
+    toast(t('save_success'), 'good');
+  } catch(e) {
+    $('saveBtn').disabled = false;
+    $('saveBtn').textContent = t('save_submit');
+    toast('❌ ' + e.message, 'bad');
+  }
+}
+
+/* SEARCH + CHAT */
 function renderSearch(){return `<div class="ex-empty"><span class="big">🔍</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('search_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 function renderChat(){return `<div class="ex-empty"><span class="big">💬</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('chat_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
@@ -212,9 +293,7 @@ async function build(bId){
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
   const remaining = profile.cash - c;
   if (remaining < 500) {
-    const msg = currentLang === 'id'
-      ? `⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang kamu: $${nf.format(remaining)}\n\nLanjut?`
-      : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining cash: $${nf.format(remaining)}\n\nContinue?`;
+    const msg = currentLang === 'id' ? `⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang: $${nf.format(remaining)}\n\nLanjut?` : `⚠️ Warning!\n\nBuilding ${t(BUILDINGS[bId].nameKey)} will cost $${nf.format(c)}.\n\nRemaining: $${nf.format(remaining)}\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
   const oldCash = profile.cash, oldUpgrading = st.upgrading, oldEndsAt = st.upgradeEndsAt;
@@ -239,9 +318,7 @@ async function upgrade(bId){
   if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');
   const remaining = profile.cash - c;
   if (remaining < 500) {
-    const msg = currentLang === 'id'
-      ? `⚠️ Peringatan!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} akan memakan $${nf.format(c)}.\n\nSisa uang: $${nf.format(remaining)}\n\nLanjut?`
-      : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining: $${nf.format(remaining)}\n\nContinue?`;
+    const msg = currentLang === 'id' ? `⚠️ Peringatan!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} akan memakan $${nf.format(c)}.\n\nSisa uang: $${nf.format(remaining)}\n\nLanjut?` : `⚠️ Warning!\n\nUpgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} will cost $${nf.format(c)}.\n\nRemaining: $${nf.format(remaining)}\n\nContinue?`;
     if (!confirm(msg)) return toast(currentLang==='id'?'Dibatalkan':'Cancelled','info');
   }
   const oldCash = profile.cash, oldUpgrading = st.upgrading, oldEndsAt = st.upgradeEndsAt;
@@ -262,8 +339,32 @@ function scheduleFinish(bId){const st=buildings[bId];const remain=st.endsAt-Date
 async function finishProduction(bId){const st=buildings[bId];if(!st.producing)return;const b=BUILDINGS[bId];const qty=getOutputQty(bId);st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;addXP(qty);await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));await advanceTutorial(2);if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);else render();}
 
 /* TUTORIAL */
-async function advanceTutorial(stepDone){if(!profile)return;if(profile.tutorial_dismissed)return;if(profile.tutorial_step>=stepDone)return;if(profile.tutorial_step!==stepDone-1)return;const step=TUTORIAL_STEPS.find(s=>s.id===stepDone);if(!step)return;profile.tutorial_step=stepDone;profile.cash+=step.reward;await syncProfile();setTimeout(()=>{toast('✅ '+t(step.stepKey)+' +'+money(step.reward),'good');},400);if(profile.tutorial_step>=TUTORIAL_STEPS.length){setTimeout(()=>{toast(t('tutorial_done'),'good');},1800);}}
-async function dismissTutorial(){if(!confirm(currentLang==='id'?'Lewati tutorial?':'Skip tutorial?'))return;profile.tutorial_dismissed=true;await sb.from('profiles').update({tutorial_dismissed:true}).eq('id',user.id);render();toast(t('tutorial_skipped'),'info');}
+async function advanceTutorial(stepDone){
+  if(!profile)return;
+  if(profile.tutorial_dismissed)return;
+  if(profile.tutorial_step>=stepDone)return;
+  if(profile.tutorial_step!==stepDone-1)return;
+  const step=TUTORIAL_STEPS.find(s=>s.id===stepDone);
+  if(!step)return;
+  profile.tutorial_step=stepDone;
+  profile.cash+=step.reward;
+  await syncProfile();
+  setTimeout(()=>{toast('✅ '+t(step.stepKey)+' +'+money(step.reward),'good');},400);
+  if(profile.tutorial_step>=TUTORIAL_STEPS.length){
+    setTimeout(()=>{
+      toast(t('tutorial_done'),'good');
+      if(isGuest) setTimeout(()=>openSaveModal(), 2000);
+    },1800);
+  }
+}
+async function dismissTutorial(){
+  if(!confirm(currentLang==='id'?'Lewati tutorial?':'Skip tutorial?'))return;
+  profile.tutorial_dismissed=true;
+  await sb.from('profiles').update({tutorial_dismissed:true}).eq('id',user.id);
+  render();
+  toast(t('tutorial_skipped'),'info');
+  if(isGuest) setTimeout(()=>openSaveModal(), 1200);
+}
 function renderTutorialCard(){if(!profile)return '';if(profile.tutorial_dismissed)return '';if(profile.tutorial_step>=TUTORIAL_STEPS.length)return '';const total=TUTORIAL_STEPS.length;const step=profile.tutorial_step;const pct=(step/total)*100;let stepsHtml='';for(let i=0;i<total;i++){const s=TUTORIAL_STEPS[i];const done=i<step;const current=i===step;const icon=done?'✅':(current?'▶️':'⬜');const style=done?'opacity:0.55;text-decoration:line-through;':(current?'font-weight:800;color:#1e88e5;':'color:#8b95a3;');stepsHtml+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;font-size:12px;${style}"><span style="font-size:13px;flex-shrink:0;">${icon}</span><span>${t(s.stepKey)}</span></div>`;}const totalReward=TUTORIAL_STEPS.reduce((s,x)=>s+x.reward,0);return `<div class="card" style="border:1px solid rgba(30,136,229,0.4);background:linear-gradient(180deg,#e6f0fb,#fff);padding:14px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><div style="font-size:13px;font-weight:800;color:#1565c0;">🎓 ${t('tutorial_title')}</div><button onclick="dismissTutorial()" style="background:none;border:none;color:#8b95a3;font-size:11px;font-weight:700;cursor:pointer;padding:4px 8px;font-family:inherit;">${t('tutorial_skip')} ✕</button></div><div style="background:#fff;border-radius:99px;height:6px;margin-bottom:10px;overflow:hidden;border:1px solid #d0e3f5;"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#1e88e5,#42a5f5);transition:width 0.3s;"></div></div><div style="font-size:11px;color:#5a6472;margin-bottom:8px;font-weight:600;">${t('tutorial_progress')}: ${step} / ${total}</div>${stepsHtml}<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(0,0,0,0.08);font-size:11px;color:#5a6472;">🎁 ${t('tutorial_total_reward')}: <b style="color:#1f7a3a;">+${money(totalReward)}</b></div></div>`;}
 function renderBoostCard(){if(!isBeginnerBoostActive())return '';const remaining=getBoostRemaining();return `<div class="card" style="border:1px solid rgba(230,149,0,0.4);background:linear-gradient(180deg,#fff5d9,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🚀</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#8a6000;">${t('boost_active')}</div><div style="font-size:10.5px;color:#8a6000;margin-top:2px;">${t('boost_desc')}</div></div><div style="font-size:11px;font-weight:800;color:#8a6000;font-variant-numeric:tabular-nums;" data-boost-timer>${formatBoostTime(remaining)}</div></div></div>`;}
 function startBoostTimer(){if(boostRaf)cancelAnimationFrame(boostRaf);const tick=()=>{if(!isBeginnerBoostActive())return;const el=document.querySelector('[data-boost-timer]');if(el){el.textContent=formatBoostTime(getBoostRemaining());}boostRaf=requestAnimationFrame(tick);};tick();}
@@ -300,7 +401,7 @@ function resumeAllResearch(){for(const itemId of Object.keys(research)){const r=
 function recoverPrices(){let changed=false;for(const[id,it]of Object.entries(inventory)){const base=ITEMS[id].basePrice;if(it.price<base){it.price=Math.min(base,it.price*CONFIG.PRICE_RECOVER);changed=true;}}if(changed&&currentTab==='exchange')render();}
 function resumeAllActions(){for(const bId of Object.keys(BUILDINGS)){const st=buildings[bId];if(st.upgrading&&st.upgradeEndsAt){if(Date.now()>=st.upgradeEndsAt)finishUpgrade(bId);else scheduleUpgradeFinish(bId);}else if(st.producing&&st.endsAt){if(Date.now()>=st.endsAt)finishProduction(bId);else scheduleFinish(bId);}else if(st.auto&&st.level>0&&hasInputs(bId))startProduction(bId);}}
 
-function openEditProfileModal(){const avatars=['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];const avatarHtml=avatars.map(e=>`<div class="avatar-opt ${(profile.avatar||'🏭')===e?'selected':''}" data-emoji="${e}" onclick="pickEditAvatar('${e}')">${e}</div>`).join('');const countries=[{code:'id',name:'🇮🇩 Indonesia'},{code:'us',name:'🇺🇸 United States'},{code:'sg',name:'🇸🇬 Singapore'},{code:'my',name:'🇲🇾 Malaysia'},{code:'jp',name:'🇯🇵 Japan'}];const countryHtml=countries.map(c=>`<option value="${c.code}" ${(profile.country_code||'id')===c.code?'selected':''}>${c.name}</option>`).join('');$('modalContainer').innerHTML=`<div class="modal-backdrop" id="editBackdrop" onclick="if(event.target.id==='editBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">✏️ ${t('edit_profile_title')}</div><div class="modal-field"><label>${t('edit_avatar')}</label><div class="avatar-grid">${avatarHtml}</div></div><div class="modal-field"><label>${t('edit_company_name')}</label><input type="text" id="editCompanyName" value="${profile.company_name||''}" maxlength="30" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;"></div><div class="modal-field"><label>${t('edit_country')}</label><select id="editCountry" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;">${countryHtml}</select></div><div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button><button class="btn btn-green" id="editSaveBtn" onclick="saveEditProfile()">${t('edit_save')}</button></div></div></div>`;}
+function openEditProfileModal(){const avatars=['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];const avatarHtmlStr=avatars.map(e=>`<div class="avatar-opt ${(profile.avatar||'🏭')===e?'selected':''}" data-emoji="${e}" onclick="pickEditAvatar('${e}')">${e}</div>`).join('');const countries=[{code:'id',name:'🇮🇩 Indonesia'},{code:'us',name:'🇺🇸 United States'},{code:'sg',name:'🇸🇬 Singapore'},{code:'my',name:'🇲🇾 Malaysia'},{code:'jp',name:'🇯🇵 Japan'}];const countryHtml=countries.map(c=>`<option value="${c.code}" ${(profile.country_code||'id')===c.code?'selected':''}>${c.name}</option>`).join('');$('modalContainer').innerHTML=`<div class="modal-backdrop" id="editBackdrop" onclick="if(event.target.id==='editBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">✏️ ${t('edit_profile_title')}</div><div class="modal-field"><label>${t('edit_avatar')}</label><div class="avatar-grid">${avatarHtmlStr}</div></div><div class="modal-field"><label>${t('edit_company_name')}</label><input type="text" id="editCompanyName" value="${profile.company_name||''}" maxlength="30" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;"></div><div class="modal-field"><label>${t('edit_country')}</label><select id="editCountry" style="width:100%;padding:13px;background:var(--surface);border:1px solid var(--border-hi);border-radius:9px;color:var(--text);font-size:15px;">${countryHtml}</select></div><div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button><button class="btn btn-green" id="editSaveBtn" onclick="saveEditProfile()">${t('edit_save')}</button></div></div></div>`;}
 function pickEditAvatar(e){document.querySelectorAll('#modalContainer .avatar-opt').forEach(o=>o.classList.remove('selected'));const el=document.querySelector(`#modalContainer .avatar-opt[data-emoji="${e}"]`);if(el)el.classList.add('selected');}
 async function saveEditProfile(){const company=$('editCompanyName').value.trim();const avatarEl=document.querySelector('#modalContainer .avatar-opt.selected');const avatar=avatarEl?avatarEl.dataset.emoji:profile.avatar;const country_code=$('editCountry').value;if(company.length<3)return toast('Min 3','bad');if(company.length>30)return toast('Max 30','bad');$('editSaveBtn').disabled=true;$('editSaveBtn').textContent='⏳...';const{error}=await sb.from('profiles').update({company_name:company,avatar:avatar,country_code:country_code}).eq('id',user.id);if(error){$('editSaveBtn').disabled=false;$('editSaveBtn').textContent=t('edit_save');return toast('❌ '+error.message,'bad');}profile.company_name=company;profile.avatar=avatar;profile.country_code=country_code;closeModal();render();toast(t('t_profile_saved'),'good');}
 
@@ -308,7 +409,7 @@ function setStorageSub(id){storageSubTab=id;if(id==='rank'){leaderboardData=null
 function setHistoryFilter(f){historyFilter=f;render();}
 
 function renderStorage(){let html='<div class="sub-nav">';const subs=[{id:'rank',icon:'📊',label:t('storage_rank')},{id:'history',icon:'📜',label:t('storage_history')},{id:'incoming',icon:'📥',label:t('storage_incoming')},{id:'outgoing',icon:'📤',label:t('storage_outgoing')},{id:'buildings',icon:'🏭',label:t('storage_buildings')},{id:'research',icon:'🔬',label:t('storage_research')}];for(const s of subs)html+=`<button class="sub-tab ${storageSubTab===s.id?'active':''}" onclick="setStorageSub('${s.id}')"><span class="sub-icon">${s.icon}</span><span class="sub-label">${s.label}</span></button>`;html+='</div>';if(storageSubTab==='rank')html+=renderRankTab();else if(storageSubTab==='buildings')html+=renderBuildingsListTab();else if(storageSubTab==='history')html+=renderHistoryTab();else if(storageSubTab==='research')html+=renderResearchTab();else html+=renderComingSoon();return html;}
-function renderRankTab(){if(leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';}if(leaderboardData.length===0)return '<div class="ex-empty"><span class="big">📊</span>'+t('rank_title')+'</div>';let html='<div class="section-title">'+t('rank_title')+'</div>';let rank=1;for(const p of leaderboardData){const isMe=p.id===user.id;let posHtml='#'+rank,posCls='';if(rank===1){posHtml='🥇';posCls='gold';}else if(rank===2){posHtml='🥈';posCls='gold';}else if(rank===3){posHtml='🥉';posCls='gold';}html+=`<div class="rank-row ${isMe?'me':''}"><div class="rank-pos ${posCls}">${posHtml}</div><div class="rank-avatar">${p.avatar||'🏭'}</div><div class="rank-info"><div class="rank-name">${p.company_name||p.username}${isMe?'<span class="rank-you">'+t('rank_you')+'</span>':''}</div><div class="rank-meta">Lv ${p.level||1} · @${p.username}</div></div><div class="rank-value">${money(p.company_value||0)}</div></div>`;rank++;}return html;}
+function renderRankTab(){if(leaderboardData===null){loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';}if(leaderboardData.length===0)return '<div class="ex-empty"><span class="big">📊</span>'+t('rank_title')+'</div>';let html='<div class="section-title">'+t('rank_title')+'</div>';let rank=1;for(const p of leaderboardData){const isMe=p.id===user.id;let posHtml='#'+rank,posCls='';if(rank===1){posHtml='🥇';posCls='gold';}else if(rank===2){posHtml='🥈';posCls='gold';}else if(rank===3){posHtml='🥉';posCls='gold';}html+=`<div class="rank-row ${isMe?'me':''}"><div class="rank-pos ${posCls}">${posHtml}</div><div class="rank-avatar">${avatarHtml(p.avatar)}</div><div class="rank-info"><div class="rank-name">${p.company_name||p.username}${isMe?'<span class="rank-you">'+t('rank_you')+'</span>':''}</div><div class="rank-meta">Lv ${p.level||1} · @${p.username}</div></div><div class="rank-value">${money(p.company_value||0)}</div></div>`;rank++;}return html;}
 function renderBuildingsListTab(){let html='<div class="section-title">'+t('buildings_list_title')+'</div>';const cats={};for(const[bId,b]of Object.entries(BUILDINGS)){const cat=t(b.categoryKey);if(!cats[cat])cats[cat]=[];cats[cat].push([bId,b]);}for(const[catName,arr]of Object.entries(cats)){html+='<div class="cat-header">'+catName+'</div>';for(const[bId,b]of arr){const st=buildings[bId];const built=st.level>0;html+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:12px;"><div style="font-size:26px;flex-shrink:0;">${b.emoji}</div><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:800;">${t(b.nameKey)}</div><div style="font-size:11px;color:var(--text-dim);margin-top:2px;">${built?'Lv '+st.level:'—'}</div></div>${built?'<div class="lvl-badge">Lv '+st.level+'</div>':'<div class="status locked">'+t('status_not_built')+'</div>'}</div>`;}}return html;}
 function renderHistoryTab(){let html='<div class="section-title">'+t('history_title')+'</div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${historyFilter==='all'?'active':''}" onclick="setHistoryFilter('all')">${t('history_filter_all')}</div>`;html+=`<div class="ex-chip ${historyFilter==='in'?'active':''}" onclick="setHistoryFilter('in')">⬇️ ${t('history_filter_in')}</div>`;html+=`<div class="ex-chip ${historyFilter==='out'?'active':''}" onclick="setHistoryFilter('out')">⬆️ ${t('history_filter_out')}</div>`;html+='</div>';let filtered=transactions;if(historyFilter==='in')filtered=transactions.filter(tx=>tx.amount>0);else if(historyFilter==='out')filtered=transactions.filter(tx=>tx.amount<0);if(filtered.length===0){html+='<div class="ex-empty"><span class="big">📜</span>'+t('history_empty')+'</div>';return html;}for(const tx of filtered){const def=tx.item_id?ITEMS[tx.item_id]:null;const isIn=tx.amount>0;const isNeutral=tx.amount===0;let color='#5a6472';if(isIn)color='#2e9e4f';else if(!isNeutral)color='#e03e3e';const amountStr=tx.amount===0?'':((tx.amount>0?'+':'')+money(Math.abs(tx.amount)));const icon=isIn?'⬇️':(isNeutral?'🔄':'⬆️');const typeLabel=t('tx_'+tx.type)||tx.type;html+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:11px 12px;margin-bottom:7px;"><div style="font-size:20px;flex-shrink:0;">${def?def.emoji:icon}</div><div style="flex:1;min-width:0;"><div style="font-size:12.5px;font-weight:800;">${typeLabel}${def?' · '+t(def.nameKey):''}</div><div style="font-size:10.5px;color:var(--text-mute);margin-top:2px;">${tx.qty>0?nf.format(tx.qty)+' unit · ':''}${timeAgo(tx.created_at)}</div></div><div style="font-size:12.5px;font-weight:800;color:${color};font-variant-numeric:tabular-nums;flex-shrink:0;">${amountStr}</div></div>`;}return html;}
 function renderResearchTab(){if(Object.keys(research).length===0)return '<div class="ex-empty"><span class="big">⏳</span>'+t('loading_data')+'</div>';let html='<div class="section-title">'+t('research_title')+'</div>';html+='<div style="background:var(--surface-2);padding:12px;border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">'+t('research_intro')+'</div>';for(const itemId of RESEARCH_CONFIG.PILOT_ITEMS){const def=ITEMS[itemId];const r=research[itemId];const maxed=r.level>=RESEARCH_CONFIG.MAX_LEVEL;const cost=getResearchCost(r.level);const dur=Math.round(getResearchDuration(r.level)/1000);const canAfford=profile.cash>=cost;let statusText='';let btnHtml='';let progHtml='';if(maxed){statusText='<span class="status auto">'+t('research_max')+'</span>';btnHtml='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';}else if(r.researching){statusText='<span class="status busy">'+t('research_in_progress')+'</span>';btnHtml='<button class="btn btn-purple btn-sm" disabled>⏳ '+t('research_in_progress')+'</button>';progHtml='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';}else{statusText='<span class="status idle">'+t('status_ready')+'</span>';const dis=!canAfford?'disabled':'';btnHtml='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';}html+='<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+def.emoji+'</div><div class="b-info"><div class="b-name">'+t(def.nameKey)+'</div><div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div><div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div></div><div>'+statusText+'</div></div>'+progHtml+btnHtml+'</div>';}return html;}
@@ -318,12 +419,12 @@ function openProfile(){currentTab='profile';document.querySelectorAll('.tab').fo
 
 function render(){
   if(!profile)return;
-  $('hdrLogo').textContent=profile.avatar||'🏭';
+  $('hdrLogo').innerHTML=avatarHtml(profile.avatar);
   $('hdrCompany').textContent=profile.company_name;
   $('hdrCash').textContent=money(profile.cash);
   $('hdrLevel').textContent=profile.level;
   const hpa=$('hdrProfileAvatar');
-  if(hpa)hpa.textContent=profile.avatar||'🏭';
+  if(hpa)hpa.innerHTML=avatarHtml(profile.avatar);
   const c=$('gameContent');
   if(currentTab==='buildings')c.innerHTML=renderBuildings();
   else if(currentTab==='storage')c.innerHTML=renderStorage();
@@ -381,9 +482,33 @@ function renderOneBuilding(bId,b){
 
 function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}html+='</div>';if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;else for(const o of filteredMarket)html+=renderOrderRow(o,false);html+='</div>';return html;}
 function setFilter(f){marketFilter=f;render();}
-function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];if(!def)return '';const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatar}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
+function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];if(!def)return '';const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatarHtml(avatar)}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatarHtml(avatar)}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
 
-function renderProfile(){const rating=getRating();const value=getCompanyValue();const desc=profile.company_description||'';const country=profile.country||'Indonesia';const established=fmtDate(profile.created_at);const lastSeen=timeAgo(profile.last_seen);const localTime=fmtTime();const builtCount=Object.values(buildings).filter(b=>b.level>0).length;return `<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${profile.avatar||'🏭'}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div><div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${t('p_logout')}</div><div class="account-arrow">›</div></div><div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div></div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v11 · Random Company</div>`;}
+function renderProfile(){
+  const rating=getRating();
+  const value=getCompanyValue();
+  const desc=profile.company_description||'';
+  const country=profile.country||'Indonesia';
+  const established=fmtDate(profile.created_at);
+  const lastSeen=timeAgo(profile.last_seen);
+  const localTime=fmtTime();
+  const builtCount=Object.values(buildings).filter(b=>b.level>0).length;
+
+  const guestBanner = isGuest ? `
+    <div class="card" style="border:1px solid rgba(230,149,0,0.4);background:linear-gradient(180deg,#fff5d9,#fff);padding:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="font-size:22px;">⚠️</div>
+        <div style="flex:1;">
+          <div style="font-size:12.5px;font-weight:800;color:#8a6000;">${t('guest_banner')}</div>
+        </div>
+        <button class="btn btn-gold btn-sm" style="width:auto;padding:8px 12px;" onclick="openSaveModal()">${t('guest_banner_btn')}</button>
+      </div>
+    </div>
+  ` : '';
+
+  return guestBanner
+    +`<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${avatarHtml(profile.avatar)}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>${isGuest?'':`<div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>`}<div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${isGuest?(currentLang==='id'?'Keluar dari Tamu':'Log out Guest'):t('p_logout')}</div><div class="account-arrow">›</div></div>${isGuest?'':`<div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>`}</div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v13 · Guest Mode ${isGuest?'🆕':''}</div>`;
+}
 async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
 function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
 async function changePassword(){const np=prompt(t('p_change_password')+' (min 6):');if(!np)return;if(np.length<6)return toast('Min 6','bad');const{error}=await sb.auth.updateUser({password:np});if(error)return toast('❌ '+error.message,'bad');toast(t('t_password_changed'),'good');}
@@ -434,12 +559,39 @@ document.querySelectorAll('.tab').forEach(tabEl=>{
   });
 });
 
+/* ============================================================
+   INIT — AUTO ANONYMOUS SIGN-IN untuk pemain baru
+   ============================================================ */
 (async()=>{
   document.documentElement.lang=currentLang;
   updateStaticUI();
   showLoading('Loading...');
+
   const{data}=await sb.auth.getSession();
-  if(data.session){user=data.session.user;await enterGame();}
-  else{hideLoading();showScreen('auth');}
+  if(data.session){
+    user=data.session.user;
+    isGuest = !!(user && user.is_anonymous);
+    await enterGame();
+  } else {
+    // Belum ada session → coba anonymous sign-in
+    try {
+      const {data: anonData, error} = await sb.auth.signInAnonymously();
+      if(error){
+        console.warn('Anonymous sign-in gagal:', error.message);
+        hideLoading();
+        showScreen('auth');
+        toast('Anonymous sign-in tidak aktif. Login manual.', 'info');
+        return;
+      }
+      user = anonData.user;
+      isGuest = true;
+      await ensureGuestProfile();
+      await enterGame();
+    } catch(e){
+      console.warn('Auto guest gagal:', e);
+      hideLoading();
+      showScreen('auth');
+    }
+  }
   setInterval(recoverPrices,12000);
 })();
