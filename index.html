@@ -47,10 +47,19 @@
     <div class="auth-title">Buat Profil</div>
     <div class="auth-sub">Kenalkan perusahaanmu ke dunia</div>
     <div id="onboardMsg" class="msg"></div>
+
     <div class="field">
-      <label>Pilih Logo</label>
+      <label>Logo Perusahaan</label>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
+        <div id="pixelPreview" style="width:64px;height:64px;border-radius:12px;overflow:hidden;background:#1a1c20;border:2px solid var(--border-hi);flex-shrink:0;display:flex;align-items:center;justify-content:center;"></div>
+        <div style="flex:1;font-size:11px;color:var(--text-dim);line-height:1.5;">
+          <b style="color:var(--text);">Avatar otomatis</b><br>untuk perusahaanmu.
+        </div>
+        <button type="button" onclick="rollPixelAvatar()" title="Acak avatar" style="padding:0 14px;background:var(--surface-2);border:1px solid var(--border-hi);border-radius:9px;font-size:22px;cursor:pointer;font-family:inherit;min-width:54px;height:54px;">🎲</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-mute);margin-bottom:8px;font-weight:600;">Atau pilih emoji:</div>
       <div class="avatar-grid" id="avatarGrid">
-        <div class="avatar-opt selected" data-emoji="🏭">🏭</div>
+        <div class="avatar-opt" data-emoji="🏭">🏭</div>
         <div class="avatar-opt" data-emoji="⚡">⚡</div>
         <div class="avatar-opt" data-emoji="🚀">🚀</div>
         <div class="avatar-opt" data-emoji="🌾">🌾</div>
@@ -60,14 +69,16 @@
         <div class="avatar-opt" data-emoji="🔧">🔧</div>
       </div>
     </div>
+
     <div class="field">
       <label>Nama Perusahaan</label>
       <div style="display:flex;gap:8px;">
         <input type="text" id="onboardCompany" placeholder="Nama otomatis..." maxlength="30" required style="flex:1;">
-        <button type="button" onclick="rollCompanyName()" title="Acak nama" style="padding:0 14px;background:var(--surface-2);border:1px solid var(--border-hi);border-radius:9px;font-size:20px;cursor:pointer;font-family:inherit;min-width:50px;">🎲</button>
+        <button type="button" onclick="rollCompanyName()" title="Acak nama" style="padding:0 14px;background:var(--surface-2);border:1px solid var(--border-hi);border-radius:9px;font-size:22px;cursor:pointer;font-family:inherit;min-width:54px;">🎲</button>
       </div>
       <div style="font-size:11px;color:var(--text-mute);margin-top:6px;">Tap 🎲 untuk acak nama perusahaan</div>
     </div>
+
     <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai Bermain</button>
   </div>
 </section>
