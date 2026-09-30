@@ -476,3 +476,176 @@ nav.tabs{position:absolute;bottom:0;left:0;right:0;background:#ffffff;
   position:relative;z-index:6;border-radius:12px;
 }
 .tab.tutorial-pulse{border-radius:10px;}
+
+/* ============================================================
+   ISO GRID — Peta Isometrik 2.5D dengan CSS
+   ============================================================ */
+.view-toggle{
+  display:flex;gap:4px;background:var(--surface-2);border-radius:9px;
+  padding:3px;margin-bottom:12px;border:1px solid var(--border);
+}
+.view-toggle button{
+  flex:1;padding:8px;background:none;border:none;
+  color:var(--text-dim);font-size:11px;font-weight:700;
+  cursor:pointer;border-radius:7px;font-family:inherit;
+  transition:all 0.15s;
+}
+.view-toggle button.active{
+  background:var(--surface);color:var(--text);
+  box-shadow:0 1px 3px rgba(0,0,0,0.08);
+}
+
+.iso-scene{
+  padding:40px 10px 60px;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+  perspective:1400px;
+  perspective-origin:50% 0%;
+  min-height:360px;
+}
+.iso-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 62px);
+  grid-template-rows:repeat(3, 62px);
+  gap:14px;
+  transform:rotateX(52deg) rotateZ(-45deg);
+  transform-style:preserve-3d;
+  transition:transform 0.4s var(--ease-out);
+}
+.iso-slot{
+  position:relative;
+  transform-style:preserve-3d;
+  cursor:pointer;
+}
+.iso-slot:active{
+  transform:scale(0.94);
+}
+.iso-slot .iso-ground{
+  position:absolute;
+  inset:0;
+  background:linear-gradient(135deg, #8bc34a, #558b2f);
+  border-radius:6px;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 -20px 0 0 #5d8432,
+    10px 10px 0 0 #4a6d28,
+    14px 14px 20px rgba(0,0,0,0.25);
+  transform:translateZ(0);
+  transition:all 0.2s;
+}
+.iso-slot.empty .iso-ground{
+  background:linear-gradient(135deg, #c4a76d, #8e7340);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 -20px 0 0 #7a6234,
+    10px 10px 0 0 #5e4a25,
+    14px 14px 20px rgba(0,0,0,0.25);
+}
+.iso-slot.constructing .iso-ground{
+  background:repeating-linear-gradient(45deg, #ffd54f 0 8px, #ffb300 8px 16px);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.2) inset,
+    0 -20px 0 0 #b8860b,
+    10px 10px 0 0 #8b6508,
+    14px 14px 20px rgba(0,0,0,0.25);
+  animation:isoStripe 1s linear infinite;
+  background-size:32px 32px;
+}
+@keyframes isoStripe{
+  from{background-position:0 0;}
+  to{background-position:32px 32px;}
+}
+.iso-slot.producing .iso-ground{
+  background:linear-gradient(135deg, #4dd0e1, #00838f);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 -20px 0 0 #006064,
+    10px 10px 0 0 #004d40,
+    14px 14px 20px rgba(0,0,0,0.25);
+}
+.iso-slot.upgrading .iso-ground{
+  background:linear-gradient(135deg, #b39ddb, #5e35b1);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.15) inset,
+    0 -20px 0 0 #4527a0,
+    10px 10px 0 0 #311b92,
+    14px 14px 20px rgba(0,0,0,0.25);
+}
+.iso-slot .iso-emoji{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:36px;
+  transform:translateZ(35px) rotateZ(45deg) rotateX(-52deg);
+  transform-origin:center;
+  pointer-events:none;
+  filter:drop-shadow(0 3px 4px rgba(0,0,0,0.4));
+  transition:transform 0.3s var(--ease-spring);
+}
+.iso-slot:active .iso-emoji{
+  transform:translateZ(45px) rotateZ(45deg) rotateX(-52deg) scale(1.1);
+}
+.iso-slot.empty .iso-emoji{
+  font-size:24px;
+  opacity:0.7;
+  transform:translateZ(20px) rotateZ(45deg) rotateX(-52deg);
+}
+.iso-slot .iso-badge{
+  position:absolute;
+  top:-4px;
+  right:-4px;
+  background:var(--accent);
+  color:#fff;
+  font-size:9px;
+  font-weight:800;
+  padding:2px 6px;
+  border-radius:99px;
+  transform:translateZ(50px) rotateZ(45deg) rotateX(-52deg);
+  pointer-events:none;
+  box-shadow:0 2px 4px rgba(0,0,0,0.3);
+  white-space:nowrap;
+}
+.iso-slot.empty .iso-badge{
+  background:var(--gold);
+  color:#0a0c10;
+}
+.iso-slot.upgrading .iso-badge{background:var(--purple);}
+.iso-slot.constructing .iso-badge{background:var(--gold);color:#0a0c10;}
+.iso-slot.producing .iso-badge{background:#00838f;}
+
+/* Info panel di bawah peta */
+.iso-info-panel{
+  margin-top:8px;
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:6px;
+}
+.iso-info-item{
+  display:flex;align-items:center;gap:8px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:9px;padding:8px 10px;
+  font-size:11px;
+  cursor:pointer;
+  transition:background 0.15s;
+}
+.iso-info-item:active{background:var(--surface-2);}
+.iso-info-item .emoji{font-size:18px;flex-shrink:0;}
+.iso-info-item .text{flex:1;min-width:0;}
+.iso-info-item .name{font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.iso-info-item .meta{font-size:9.5px;color:var(--text-mute);margin-top:1px;}
+.iso-info-item .lvl{
+  background:#e8eefb;color:#1e5db5;font-size:9px;font-weight:800;
+  padding:1px 6px;border-radius:5px;border:1px solid #b8cdf0;
+}
+.iso-info-item.empty .lvl{background:#fdf2d4;color:#8a6000;border-color:#f0c674;}
+
+/* Overlay saat loading peta */
+.iso-hint{
+  text-align:center;
+  font-size:11px;
+  color:var(--text-mute);
+  margin-top:14px;
+  padding:8px;
+}
