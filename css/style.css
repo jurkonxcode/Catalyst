@@ -107,3 +107,13 @@
   border-radius:4px;
   font-size:10px;
 }
+/* ============================================================
+   OVERRIDE — Paksa background PNG pakai URL absolut
+   ============================================================ */
+.iso-stage{
+  background-image: url('https://jurkonxcode.github.io/Catalyst/asset/landscape.jpg') !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #7cb342 !important;
+}
