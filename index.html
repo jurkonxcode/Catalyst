@@ -60,8 +60,14 @@
         <div class="avatar-opt" data-emoji="🔧">🔧</div>
       </div>
     </div>
-    <div class="field"><label>Nama Perusahaan</label>
-      <input type="text" id="onboardCompany" placeholder="cth: PT Cahaya Energi" maxlength="30" required></div>
+    <div class="field">
+      <label>Nama Perusahaan</label>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="onboardCompany" placeholder="Nama otomatis..." maxlength="30" required style="flex:1;">
+        <button type="button" onclick="rollCompanyName()" title="Acak nama" style="padding:0 14px;background:var(--surface-2);border:1px solid var(--border-hi);border-radius:9px;font-size:20px;cursor:pointer;font-family:inherit;min-width:50px;">🎲</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-mute);margin-top:6px;">Tap 🎲 untuk acak nama perusahaan</div>
+    </div>
     <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai Bermain</button>
   </div>
 </section>
@@ -78,7 +84,7 @@
       </div>
     </div>
     <div class="hdr-right">
-      <div class="cash-box" id="hdrCash">$10,000</div>
+      <div class="cash-box" id="hdrCash">$500</div>
       <div class="hdr-meta-row">
         <div class="lvl-box">Lv <span id="hdrLevel">1</span></div>
         <button class="hdr-profile-btn" onclick="openProfile()" title="Profil">
@@ -88,7 +94,6 @@
     </div>
   </header>
 
-  <!-- TICKER HARGA PEMIAN -->
   <div class="ticker" id="tickerBar">
     <div class="ticker-loading">Memuat harga pasar...</div>
   </div>
