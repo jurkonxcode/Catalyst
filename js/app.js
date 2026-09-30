@@ -43,7 +43,7 @@ function generateRandomCompanyName(){
 function generateRandomAvatar(){const avatars = ['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];return avatars[Math.floor(Math.random() * avatars.length)];}
 
 /* ============================================================
-   PIXEL AVATAR GENERATOR
+   PIXEL AVATAR
    ============================================================ */
 function generatePixelAvatar(){
   const size = 8;
@@ -120,21 +120,29 @@ async function doLogout(){
 }
 
 /* ============================================================
-   AUTO-GENERATE PROFILE UNTUK GUEST
+   AUTO PROFILE + FREE FARM untuk pemain baru
    ============================================================ */
 async function ensureGuestProfile(){
   const {data: existing} = await sb.from('profiles').select('id, company_name').eq('id', user.id).maybeSingle();
-  if(existing && existing.company_name && existing.company_name !== 'PT Baru') return;
+  if(existing && existing.company_name && existing.company_name !== 'PT Baru') return false;
   const name = generateRandomCompanyName();
   const avatar = generatePixelAvatar();
   const username = 'guest_' + user.id.slice(0, 6);
   await sb.from('profiles').upsert({
-    id: user.id,
-    username: username,
-    company_name: name,
-    avatar: avatar,
-    cash: 500,
+    id: user.id, username: username,
+    company_name: name, avatar: avatar, cash: 500,
   }, {onConflict: 'id'});
+  // Kasih Farm gratis
+  await sb.from('buildings').upsert({
+    user_id: user.id, building_id: 'farm', level: 1,
+    auto: false, producing: false,
+  }, {onConflict: 'user_id,building_id'});
+  // Kasih sedikit inventory awal (biar bisa produksi 1x)
+  await sb.from('inventory').upsert([
+    {user_id: user.id, item_id: 'seeds', qty: 5},
+    {user_id: user.id, item_id: 'water', qty: 15},
+  ], {onConflict: 'user_id,item_id'});
+  return true;
 }
 
 async function enterGame(){
@@ -147,7 +155,6 @@ async function enterGame(){
   if(profile.level_rewards_claimed===undefined) profile.level_rewards_claimed='';
   if(profile.last_emergency_grant===undefined) profile.last_emergency_grant=null;
 
-  // Kalau belum punya nama perusahaan, auto-generate (untuk guest baru)
   if(!profile.company_name || profile.company_name === 'PT Baru'){
     const name = generateRandomCompanyName();
     const avatar = generatePixelAvatar();
@@ -158,8 +165,6 @@ async function enterGame(){
 
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
-
-  // Deteksi apakah guest
   isGuest = !!(user && user.is_anonymous);
 
   await loadGameData();await loadMarketOrders();await loadTransactions();await loadResearch();
@@ -206,7 +211,7 @@ async function claimEmergencyGrant(){if(!canClaimEmergencyGrant()){const remain=
 function renderEmergencyCard(){if(!profile)return '';if(profile.cash>=100)return '';if(!canClaimEmergencyGrant()){const remain=getEmergencyCooldownRemaining();const hours=Math.ceil(remain/3600000);return `<div class="card" style="border:1px solid rgba(224,62,62,0.4);background:#fff5f5;padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Bantuan Darurat':'Emergency Grant'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Tersedia dalam':'Available in'} ${hours}j</div></div></div></div>`;}return `<div class="card" style="border:1px solid rgba(224,62,62,0.5);background:linear-gradient(180deg,#fff5f5,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div style="font-size:22px;">🚨</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#b82020;">${currentLang==='id'?'Uang Menipis!':'Low Cash!'}</div><div style="font-size:10.5px;color:#b82020;margin-top:2px;">${currentLang==='id'?'Klaim bantuan darurat $500 (sekali per 24 jam)':'Claim $500 emergency grant (once per 24h)'}</div></div></div><button class="btn btn-red btn-sm" onclick="claimEmergencyGrant()">🚨 ${currentLang==='id'?'Klaim $500':'Claim $500'}</button></div>`;}
 
 /* ============================================================
-   SAVE PROGRESS MODAL (untuk guest)
+   SAVE PROGRESS MODAL
    ============================================================ */
 function openSaveModal(){
   if(!isGuest) return;
@@ -246,34 +251,20 @@ async function submitSave(){
   const email = $('saveEmail').value.trim();
   const password = $('savePassword').value;
   const username = $('saveUsername').value.trim();
-
   if(!email || !password || !username) return toast(currentLang==='id'?'Isi semua field':'Fill all fields','bad');
   if(password.length < 6) return toast('Password min 6','bad');
   if(!/^[a-zA-Z0-9_]{3,20}$/.test(username)) return toast('Username: 3-20 a-z/0-9/_','bad');
-
   $('saveBtn').disabled = true;
   $('saveBtn').textContent = '⏳...';
-
   try {
-    // Cek username sudah ada atau belum
     const {data: existing} = await sb.from('profiles').select('id').eq('username', username).neq('id', user.id).maybeSingle();
-    if(existing){
-      $('saveBtn').disabled = false;
-      $('saveBtn').textContent = t('save_submit');
-      return toast(currentLang==='id'?'Username sudah dipakai':'Username taken','bad');
-    }
-
-    // Upgrade anonymous user jadi real user
+    if(existing){$('saveBtn').disabled=false;$('saveBtn').textContent=t('save_submit');return toast(currentLang==='id'?'Username sudah dipakai':'Username taken','bad');}
     const {error} = await sb.auth.updateUser({ email, password });
     if(error) throw error;
-
-    // Update username di profile
     await sb.from('profiles').update({ username }).eq('id', user.id);
     profile.username = username;
     isGuest = false;
-
-    closeModal();
-    render();
+    closeModal();render();
     toast(t('save_success'), 'good');
   } catch(e) {
     $('saveBtn').disabled = false;
@@ -286,6 +277,91 @@ async function submitSave(){
 function renderSearch(){return `<div class="ex-empty"><span class="big">🔍</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('search_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 function renderChat(){return `<div class="ex-empty"><span class="big">💬</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('chat_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
 
+/* ============================================================
+   MARKET MAKER (NPC supplies)
+   ============================================================ */
+function openMarketMakerModal(itemId, price){
+  const def = ITEMS[itemId];
+  if(!def) return;
+  const maxBuy = Math.floor(profile.cash / price);
+  if(maxBuy <= 0) return toast(currentLang==='id'?'Uang tidak cukup':'Not enough money','bad');
+  const defaultQty = Math.min(maxBuy, 50);
+  modalItemId = 'mm_' + itemId;
+  $('modalContainer').innerHTML = `
+    <div class="modal-backdrop" id="mmBackdrop" onclick="if(event.target.id==='mmBackdrop')closeModal()">
+      <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-grip"></div>
+        <div class="modal-title">🛒 ${t('mm_title')} — ${def.emoji} ${t(def.nameKey)}</div>
+        <div class="modal-info" style="margin-bottom:12px;">
+          <div class="modal-info-row"><span class="k">${t('sell_price_per')}</span><span class="v">$${price.toFixed(2)}</span></div>
+          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Maks bisa beli':'Max buy'}</span><span class="v">${nf.format(maxBuy)}</span></div>
+        </div>
+        <div class="modal-field">
+          <label>${t('sell_qty')}</label>
+          <div class="qty-control">
+            <button onclick="adjustMMQty(-10)">−10</button>
+            <input type="number" id="mmQty" value="${defaultQty}" min="1" max="${maxBuy}" oninput="updateMMTotal(${price})">
+            <button onclick="adjustMMQty(10)">+10</button>
+          </div>
+          <button class="btn-max" onclick="setMMQty(${maxBuy}, ${price})">MAX (${nf.format(maxBuy)})</button>
+        </div>
+        <div class="modal-info">
+          <div class="modal-info-row"><span class="k">${t('sell_total')}</span><span class="v gold" id="mmTotal">$${(defaultQty*price).toFixed(2)}</span></div>
+          <div class="modal-info-row"><span class="k">${currentLang==='id'?'Kas kamu':'Your cash'}</span><span class="v">${money(profile.cash)}</span></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button>
+          <button class="btn btn-green" id="mmBuyBtn" onclick="confirmMarketMakerBuy('${itemId}', ${price})">🛒 ${t('ex_buy')}</button>
+        </div>
+      </div>
+    </div>`;
+}
+function adjustMMQty(d){
+  const inp = $('mmQty');
+  let v = parseInt(inp.value) || 0;
+  const max = parseInt(inp.max) || 0;
+  v = Math.max(1, Math.min(max, v + d));
+  inp.value = v;
+  updateMMTotalFromInput();
+}
+function setMMQty(max, price){
+  $('mmQty').value = max;
+  updateMMTotal(price);
+}
+function updateMMTotal(price){
+  const v = parseInt($('mmQty').value) || 0;
+  $('mmTotal').textContent = '$' + (v * price).toFixed(2);
+}
+function updateMMTotalFromInput(){
+  const inp = $('mmQty');
+  const price = parseFloat((inp.value ? inp.value : 0)) ? 0 : 0;
+}
+async function confirmMarketMakerBuy(itemId, price){
+  const qty = parseInt($('mmQty').value) || 0;
+  if(qty <= 0) return;
+  const total = qty * price;
+  if(total > profile.cash) return toast(t('t_not_enough_money'),'bad');
+  $('mmBuyBtn').disabled = true;
+  $('mmBuyBtn').textContent = '⏳...';
+
+  profile.cash -= total;
+  inventory[itemId].qty += qty;
+
+  await Promise.all([syncProfile(), syncInventory(itemId)]);
+  await logTransaction('buy_market_maker', itemId, qty, -total);
+
+  // Tutorial step tracking
+  if(itemId === 'seeds') await advanceTutorial(1);
+  if(itemId === 'water') await advanceTutorial(2);
+
+  closeModal();
+  render();
+  toast('🛒 +' + qty + ' ' + ITEMS[itemId].emoji + ' (-' + money(total) + ')', 'good');
+}
+
+/* ============================================================
+   BUILD
+   ============================================================ */
 async function build(bId){
   const st=buildings[bId];
   if(st.level>0 || st.upgrading) return;
@@ -301,7 +377,9 @@ async function build(bId){
   try { await Promise.all([syncProfile(),syncBuilding(bId)]); }
   catch(e) { profile.cash=oldCash; st.upgrading=oldUpgrading; st.upgradeEndsAt=oldEndsAt; console.error(e); return toast('❌ Sync error: '+e.message,'bad'); }
   await logTransaction('build', bId, 0, -c);
-  await advanceTutorial(1);
+  // Tutorial step 5 = bangun bangunan KEDUA (bukan farm gratis)
+  const builtCount = Object.values(buildings).filter(b=>b.level>0).length;
+  if(builtCount >= 1) await advanceTutorial(5);
   render();
   const sec=Math.floor(getUpgradeDurationMs(bId)/1000);
   const boostText=isBeginnerBoostActive()?' (🚀 2x)':'';
@@ -336,9 +414,11 @@ async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)retur
 async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))startProduction(bId);}
 async function startProduction(bId){const st=buildings[bId];if(!st.level||st.producing||st.upgrading)return;if(!hasInputs(bId)){if(!st.auto)toast(t('t_insufficient_input'),'bad');return;}const b=BUILDINGS[bId];for(const it of Object.keys(b.inputs))inventory[it].qty-=getInputQty(bId,it);st.producing=true;st.endsAt=Date.now()+getProductionDuration(bId);const promises=[syncBuilding(bId)];for(const it of Object.keys(b.inputs))promises.push(syncInventory(it));await Promise.all(promises);render();scheduleFinish(bId);}
 function scheduleFinish(bId){const st=buildings[bId];const remain=st.endsAt-Date.now();if(remain<=0){finishProduction(bId);return;}clearTimeout(st._timer);st._timer=setTimeout(()=>finishProduction(bId),remain);}
-async function finishProduction(bId){const st=buildings[bId];if(!st.producing)return;const b=BUILDINGS[bId];const qty=getOutputQty(bId);st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;addXP(qty);await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));await advanceTutorial(2);if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);else render();}
+async function finishProduction(bId){const st=buildings[bId];if(!st.producing)return;const b=BUILDINGS[bId];const qty=getOutputQty(bId);st.producing=false;st.endsAt=0;inventory[b.output.item].qty+=qty;addXP(qty);await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));if(b.output.item==='apples') await advanceTutorial(3);if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>startProduction(bId),50);else render();}
 
-/* TUTORIAL */
+/* ============================================================
+   TUTORIAL
+   ============================================================ */
 async function advanceTutorial(stepDone){
   if(!profile)return;
   if(profile.tutorial_dismissed)return;
@@ -376,20 +456,20 @@ function closeModal(){$('modalContainer').innerHTML='';modalItemId=null;modalSel
 function adjustSellQty(d){const it=inventory[modalItemId];const inp=$('sellQtyInput');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(it.qty,v+d));inp.value=v;updateSellTotal();}
 function setSellQty(v){const it=inventory[modalItemId];$('sellQtyInput').value=Math.min(v,it.qty);updateSellTotal();}
 function updateSellTotal(){const it=inventory[modalItemId];let v=parseInt($('sellQtyInput').value)||0;v=Math.max(0,Math.min(it.qty,v));$('sellTotal').textContent='$'+(v*it.price).toFixed(2);}
-async function confirmSell(){const itemId=modalItemId,it=inventory[itemId];let v=parseInt($('sellQtyInput').value)||0;v=Math.max(1,Math.min(it.qty,v));const revenue=Math.floor(v*it.price);it.qty-=v;profile.cash+=revenue;addXP(Math.floor(revenue/10));const impact=Math.min(0.2,v*0.0005);it.price=Math.max(ITEMS[itemId].basePrice*CONFIG.MIN_PRICE,it.price*(1-impact));await Promise.all([syncInventory(itemId),syncProfile()]);await logTransaction('sell_instant',itemId,v,revenue);await advanceTutorial(3);closeModal();render();toast('💰 +'+money(revenue),'good');}
+async function confirmSell(){const itemId=modalItemId,it=inventory[itemId];let v=parseInt($('sellQtyInput').value)||0;v=Math.max(1,Math.min(it.qty,v));const revenue=Math.floor(v*it.price);it.qty-=v;profile.cash+=revenue;addXP(Math.floor(revenue/10));const impact=Math.min(0.2,v*0.0005);it.price=Math.max(ITEMS[itemId].basePrice*CONFIG.MIN_PRICE,it.price*(1-impact));await Promise.all([syncInventory(itemId),syncProfile()]);await logTransaction('sell_instant',itemId,v,revenue);if(itemId==='apples') await advanceTutorial(4);closeModal();render();toast('💰 +'+money(revenue),'good');}
 
 function openCreateOrderModal(){const owned=Object.entries(inventory).filter(([id,it])=>it.qty>0);if(owned.length===0)return toast(currentLang==='id'?'Tidak ada barang untuk dijual':'Nothing to sell','bad');let itemsHtml='';for(const[id,it]of owned){const def=ITEMS[id];itemsHtml+=`<div class="sell-item-opt" data-item="${id}" onclick="pickSellOrderItem('${id}')"><div class="e">${def.emoji}</div><div class="n">${t(def.nameKey)}</div><div class="q">${nf.format(it.qty)}</div></div>`;}$('modalContainer').innerHTML=`<div class="modal-backdrop" id="orderBackdrop" onclick="if(event.target.id==='orderBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">📢 ${t('ex_create_order')}</div><div class="modal-field"><label>${currentLang==='id'?'Pilih Barang':'Select Item'}</label><div class="sell-item-picker">${itemsHtml}</div></div><div id="orderFormArea" style="display:none;"><div class="modal-field"><label>${t('sell_qty')} (<span id="ordMaxLabel">0</span>)</label><div class="qty-control"><button onclick="adjustOrderQty(-10)">−10</button><input type="number" id="orderQty" value="1" min="1" oninput="updateOrderTotal()"><button onclick="adjustOrderQty(10)">+10</button></div></div><div class="modal-field"><label>${currentLang==='id'?'Harga per Unit ($)':'Price per Unit ($)'}</label><div class="qty-control"><button onclick="adjustOrderPrice(-0.5)">−0.5</button><input type="number" id="orderPrice" value="0.00" step="0.01" min="0.01" oninput="updateOrderTotal()"><button onclick="adjustOrderPrice(0.5)">+0.5</button></div><div style="font-size:10.5px;color:var(--text-mute);margin-top:6px;text-align:center;">${currentLang==='id'?'Harga pasar':'Market price'}: <span id="orderMarketPrice" style="color:#e69500;font-weight:700;">—</span></div></div><div class="modal-info"><div class="modal-info-row"><span class="k">${currentLang==='id'?'Total':'Total'}</span><span class="v gold" id="orderTotal">$0.00</span></div><div class="modal-info-row"><span class="k">${currentLang==='id'?'Order aktif':'Active'}</span><span class="v">${myOrders.length} / ${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</span></div></div><div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button><button class="btn btn-gold" id="orderSubmitBtn" onclick="submitSellOrder()">📢 ${currentLang==='id'?'Pasang':'Post'}</button></div></div></div></div>`;}
 function pickSellOrderItem(itemId){modalSellOrderItem=itemId;document.querySelectorAll('.sell-item-opt').forEach(el=>el.classList.toggle('selected',el.dataset.item===itemId));const it=inventory[itemId];const def=ITEMS[itemId];$('orderFormArea').style.display='block';$('ordMaxLabel').textContent=nf.format(it.qty);$('orderQty').value=Math.min(it.qty,1);$('orderQty').max=it.qty;const lowest=marketOrders.filter(o=>o.item_id===itemId).reduce((min,o)=>Math.min(min,parseFloat(o.price_per_unit)),Infinity);const suggested=lowest===Infinity?def.basePrice:lowest;$('orderPrice').value=suggested.toFixed(2);$('orderMarketPrice').textContent=lowest===Infinity?'—':'$'+lowest.toFixed(2);updateOrderTotal();}
 function adjustOrderQty(d){const it=inventory[modalSellOrderItem];const inp=$('orderQty');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(it.qty,v+d));inp.value=v;updateOrderTotal();}
 function adjustOrderPrice(d){const inp=$('orderPrice');let v=parseFloat(inp.value)||0;v=Math.max(0.01,v+d);inp.value=v.toFixed(2);updateOrderTotal();}
 function updateOrderTotal(){const q=parseInt($('orderQty').value)||0;const p=parseFloat($('orderPrice').value)||0;$('orderTotal').textContent='$'+(q*p).toFixed(2);}
-async function submitSellOrder(){if(!modalSellOrderItem)return;if(myOrders.length>=EXCHANGE_CONFIG.MAX_SELL_ORDERS)return toast(currentLang==='id'?'Maksimum order tercapai':'Max orders','bad');const it=inventory[modalSellOrderItem];const qty=parseInt($('orderQty').value)||0;const price=parseFloat($('orderPrice').value)||0;if(qty<1||qty>it.qty)return toast('Invalid qty','bad');if(price<0.01)return toast('Invalid price','bad');$('orderSubmitBtn').disabled=true;$('orderSubmitBtn').textContent='⏳...';const{error}=await sb.from('market_orders').insert({seller_id:user.id,seller_username:profile.company_name||profile.username,seller_avatar:profile.avatar||'🏭',item_id:modalSellOrderItem,qty:qty,price_per_unit:price,status:'open'});if(error){$('orderSubmitBtn').disabled=false;$('orderSubmitBtn').textContent='📢 Post';return toast('❌ '+error.message,'bad');}it.qty-=qty;await syncInventory(modalSellOrderItem);await logTransaction('sell_order',modalSellOrderItem,qty,qty*price);await advanceTutorial(4);closeModal();await loadMarketOrders();render();toast(currentLang==='id'?'📢 Order dipasang!':'📢 Order posted!','good');}
+async function submitSellOrder(){if(!modalSellOrderItem)return;if(myOrders.length>=EXCHANGE_CONFIG.MAX_SELL_ORDERS)return toast(currentLang==='id'?'Maksimum order tercapai':'Max orders','bad');const it=inventory[modalSellOrderItem];const qty=parseInt($('orderQty').value)||0;const price=parseFloat($('orderPrice').value)||0;if(qty<1||qty>it.qty)return toast('Invalid qty','bad');if(price<0.01)return toast('Invalid price','bad');$('orderSubmitBtn').disabled=true;$('orderSubmitBtn').textContent='⏳...';const{error}=await sb.from('market_orders').insert({seller_id:user.id,seller_username:profile.company_name||profile.username,seller_avatar:profile.avatar||'🏭',item_id:modalSellOrderItem,qty:qty,price_per_unit:price,status:'open'});if(error){$('orderSubmitBtn').disabled=false;$('orderSubmitBtn').textContent='📢 Post';return toast('❌ '+error.message,'bad');}it.qty-=qty;await syncInventory(modalSellOrderItem);await logTransaction('sell_order',modalSellOrderItem,qty,qty*price);closeModal();await loadMarketOrders();render();toast(currentLang==='id'?'📢 Order dipasang!':'📢 Order posted!','good');}
 
 function openBuyModal(orderId){const order=marketOrders.find(o=>o.id===orderId);if(!order)return;const def=ITEMS[order.item_id];const price=parseFloat(order.price_per_unit);const maxQty=order.qty;$('modalContainer').innerHTML=`<div class="modal-backdrop" id="buyBackdrop" onclick="if(event.target.id==='buyBackdrop')closeModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">${def.emoji} ${t('ex_buy')} ${t(def.nameKey)}</div><div class="modal-info" style="margin-bottom:12px;"><div class="modal-info-row"><span class="k">${currentLang==='id'?'Penjual':'Seller'}</span><span class="v">${order.seller_username}</span></div><div class="modal-info-row"><span class="k">${currentLang==='id'?'Harga':'Price'}</span><span class="v">$${price.toFixed(2)}/unit</span></div></div><div class="modal-field"><label>${t('sell_qty')} (max: ${nf.format(maxQty)})</label><div class="qty-control"><button onclick="adjustBuyQty(-10, ${orderId})">−10</button><input type="number" id="buyQty" value="${maxQty}" min="1" max="${maxQty}" oninput="updateBuyTotal(${orderId}, ${price})"><button onclick="adjustBuyQty(10, ${orderId})">+10</button></div><button class="btn-max" onclick="setBuyQty(${orderId}, ${maxQty}, ${price})">MAX (${nf.format(maxQty)})</button></div><div class="modal-info"><div class="modal-info-row"><span class="k">${currentLang==='id'?'Total bayar':'Total'}</span><span class="v gold" id="buyTotal">$${(maxQty*price).toFixed(2)}</span></div><div class="modal-info-row"><span class="k">${currentLang==='id'?'Kas kamu':'Your cash'}</span><span class="v">${money(profile.cash)}</span></div></div><div class="btn-row"><button class="btn btn-outline" onclick="closeModal()">${t('sell_cancel')}</button><button class="btn btn-green" id="buyConfirmBtn" onclick="confirmBuy(${orderId})">🛒 ${t('ex_buy')}</button></div></div></div>`;}
 function adjustBuyQty(d,orderId){const order=marketOrders.find(o=>o.id===orderId);const inp=$('buyQty');let v=parseInt(inp.value)||0;v=Math.max(1,Math.min(order.qty,v+d));inp.value=v;updateBuyTotal(orderId,parseFloat(order.price_per_unit));}
 function setBuyQty(orderId,max,price){$('buyQty').value=max;updateBuyTotal(orderId,price);}
 function updateBuyTotal(orderId,price){const order=marketOrders.find(o=>o.id===orderId);let v=parseInt($('buyQty').value)||0;v=Math.max(0,Math.min(order.qty,v));$('buyTotal').textContent='$'+(v*price).toFixed(2);}
-async function confirmBuy(orderId){const order=marketOrders.find(o=>o.id===orderId);if(!order)return;let qty=parseInt($('buyQty').value)||0;qty=Math.max(1,Math.min(order.qty,qty));$('buyConfirmBtn').disabled=true;$('buyConfirmBtn').textContent='⏳...';const{data,error}=await sb.rpc('buy_market_order',{p_order_id:orderId,p_qty:qty});if(error){$('buyConfirmBtn').disabled=false;$('buyConfirmBtn').textContent='🛒 Buy';return toast('❌ '+error.message,'bad');}const result=data;profile.cash-=result.total;inventory[result.item_id].qty+=result.qty;await logTransaction('buy_order',result.item_id,result.qty,-result.total);await advanceTutorial(5);closeModal();await loadMarketOrders();render();toast('🛒 +'+result.qty+' '+ITEMS[result.item_id].emoji+' (-'+money(result.total)+')','good');}
+async function confirmBuy(orderId){const order=marketOrders.find(o=>o.id===orderId);if(!order)return;let qty=parseInt($('buyQty').value)||0;qty=Math.max(1,Math.min(order.qty,qty));$('buyConfirmBtn').disabled=true;$('buyConfirmBtn').textContent='⏳...';const{data,error}=await sb.rpc('buy_market_order',{p_order_id:orderId,p_qty:qty});if(error){$('buyConfirmBtn').disabled=false;$('buyConfirmBtn').textContent='🛒 Buy';return toast('❌ '+error.message,'bad');}const result=data;profile.cash-=result.total;inventory[result.item_id].qty+=result.qty;await logTransaction('buy_order',result.item_id,result.qty,-result.total);if(result.item_id==='seeds') await advanceTutorial(1);if(result.item_id==='water') await advanceTutorial(2);closeModal();await loadMarketOrders();render();toast('🛒 +'+result.qty+' '+ITEMS[result.item_id].emoji+' (-'+money(result.total)+')','good');}
 async function cancelOrder(orderId){const order=myOrders.find(o=>o.id===orderId);if(!order)return;if(!confirm(currentLang==='id'?'Batalkan order ini?':'Cancel this order?'))return;const{error}=await sb.from('market_orders').update({status:'cancelled'}).eq('id',orderId);if(error)return toast('❌ '+error.message,'bad');inventory[order.item_id].qty+=order.qty;await syncInventory(order.item_id);await logTransaction('cancel_order',order.item_id,order.qty,0);await loadMarketOrders();render();toast(currentLang==='id'?'Order dibatalkan':'Cancelled','info');}
 
 /* RESEARCH */
@@ -480,7 +560,38 @@ function renderOneBuilding(bId,b){
   return '<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+bName+' '+(built?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+bDesc+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b></div></div><div>'+statusHtml+'</div></div>'+progHtml+btnHtml+'</div>';
 }
 
-function renderExchange(){let html='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';html+='<div class="ex-filters">';html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}html+='</div>';if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;else for(const o of filteredMarket)html+=renderOrderRow(o,false);html+='</div>';return html;}
+function renderExchange(){
+  let html='';
+
+  // MARKET MAKER section
+  html += `<div class="mm-section">
+    <div class="mm-header">🏛️ ${t('mm_title')}</div>
+    <div class="mm-grid">`;
+  for(const entry of MARKET_MAKER){
+    const def = ITEMS[entry.item];
+    if(!def) continue;
+    const canBuy = profile.cash >= entry.price;
+    html += `<button class="mm-item ${canBuy?'':'disabled'}" onclick="openMarketMakerModal('${entry.item}', ${entry.price})">
+      <span class="mm-emoji">${def.emoji}</span>
+      <span class="mm-name">${t(def.nameKey)}</span>
+      <span class="mm-price">$${entry.price.toFixed(2)}</span>
+    </button>`;
+  }
+  html += `</div></div>`;
+
+  html+='<div class="ex-sell-bar"><button class="ex-sell-btn" onclick="openCreateOrderModal()">📢 '+t('ex_create_order')+'</button></div>';
+  html+='<div class="ex-filters">';
+  html+=`<div class="ex-chip ${marketFilter==='all'?'active':''}" onclick="setFilter('all')">${t('ex_all')}</div>`;
+  for(const itemId of Object.keys(ITEMS)){const def=ITEMS[itemId];html+=`<div class="ex-chip ${marketFilter===itemId?'active':''}" onclick="setFilter('${itemId}')">${def.emoji} ${t(def.nameKey)}</div>`;}
+  html+='</div>';
+  if(myOrders.length>0){const filtered=marketFilter==='all'?myOrders:myOrders.filter(o=>o.item_id===marketFilter);if(filtered.length>0){html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_my_orders')}</div><div class="ex-section-count">${filtered.length}/${EXCHANGE_CONFIG.MAX_SELL_ORDERS}</div></div>`;for(const o of filtered)html+=renderOrderRow(o,true);html+='</div>';}}
+  const filteredMarket=marketFilter==='all'?marketOrders:marketOrders.filter(o=>o.item_id===marketFilter);
+  html+=`<div class="ex-section"><div class="ex-section-header"><div class="ex-section-title">${t('ex_global_market')}</div><div class="ex-section-count">${filteredMarket.length} ${t('ex_orders')}</div></div>`;
+  if(filteredMarket.length===0)html+=`<div class="ex-empty"><span class="big">💱</span>${t('ex_empty')}</div>`;
+  else for(const o of filteredMarket)html+=renderOrderRow(o,false);
+  html+='</div>';
+  return html;
+}
 function setFilter(f){marketFilter=f;render();}
 function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];if(!def)return '';const name=t(def.nameKey);const price=parseFloat(o.price_per_unit);const total=o.qty*price;const avatar=o.seller_avatar||'🏭';const time=timeAgo(o.created_at);if(isMine)return `<div class="ex-order mine"><div class="ex-order-avatar">${avatarHtml(avatar)}</div><div class="ex-order-info"><div class="ex-order-seller">${t('ex_you')} · ${time}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} = $${total.toFixed(2)}</div></div><button class="ex-buy-btn" style="background:#e03e3e;" onclick="cancelOrder(${o.id})">✕</button></div>`;return `<div class="ex-order"><div class="ex-order-avatar">${avatarHtml(avatar)}</div><div class="ex-order-info"><div class="ex-order-seller">${o.seller_username}</div><div class="ex-order-item">${def.emoji} ${name}</div><div class="ex-order-meta">${nf.format(o.qty)} × $${price.toFixed(2)} · ${time}</div></div><div class="ex-order-price"><div class="p">$${price.toFixed(2)}</div><div class="q">/unit</div></div><button class="ex-buy-btn" onclick="openBuyModal(${o.id})">${t('ex_buy')}</button></div>`;}
 
@@ -507,7 +618,7 @@ function renderProfile(){
   ` : '';
 
   return guestBanner
-    +`<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${avatarHtml(profile.avatar)}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>${isGuest?'':`<div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>`}<div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${isGuest?(currentLang==='id'?'Keluar dari Tamu':'Log out Guest'):t('p_logout')}</div><div class="account-arrow">›</div></div>${isGuest?'':`<div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>`}</div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v13 · Guest Mode ${isGuest?'🆕':''}</div>`;
+    +`<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${avatarHtml(profile.avatar)}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(value)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${rating.cls}">${rating.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${builtCount} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${country}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${established}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${lastSeen}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${localTime}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${desc}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>${isGuest?'':`<div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>`}<div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${isGuest?(currentLang==='id'?'Keluar dari Tamu':'Log out Guest'):t('p_logout')}</div><div class="account-arrow">›</div></div>${isGuest?'':`<div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>`}</div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v14 · Market Maker</div>`;
 }
 async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const desc=ta.value.trim();if(desc.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:desc}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=desc;toast(t('t_desc_saved'),'good');}
 function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
@@ -560,7 +671,7 @@ document.querySelectorAll('.tab').forEach(tabEl=>{
 });
 
 /* ============================================================
-   INIT — AUTO ANONYMOUS SIGN-IN untuk pemain baru
+   INIT
    ============================================================ */
 (async()=>{
   document.documentElement.lang=currentLang;
@@ -573,14 +684,13 @@ document.querySelectorAll('.tab').forEach(tabEl=>{
     isGuest = !!(user && user.is_anonymous);
     await enterGame();
   } else {
-    // Belum ada session → coba anonymous sign-in
     try {
       const {data: anonData, error} = await sb.auth.signInAnonymously();
       if(error){
         console.warn('Anonymous sign-in gagal:', error.message);
         hideLoading();
         showScreen('auth');
-        toast('Anonymous sign-in tidak aktif. Login manual.', 'info');
+        toast('Anonymous sign-in tidak aktif.', 'info');
         return;
       }
       user = anonData.user;
