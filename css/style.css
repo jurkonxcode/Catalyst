@@ -5,7 +5,7 @@
 :root{
   /* ⚠️ GANTI BARIS INI kalau sudah punya PNG background */
   /* Contoh: url('assets/landscape.png') center/cover no-repeat */
-  --iso-bg: linear-gradient(135deg,#7cb342 0%,#558b2f 40%,#33691e 100%);
+  --iso-bg: url('../asset/landscape.jpg') center/cover no-repeat;
 }
 
 .iso-stage{
