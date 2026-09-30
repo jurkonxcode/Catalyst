@@ -4,13 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#070a10">
-<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Catalyst</title>
-<link rel="stylesheet" href="css/style.css?v=99">
+<link rel="stylesheet" href="css/style.css?v=100">
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
 <section id="screen-auth" class="screen active">
   <div class="auth-wrap">
     <div class="auth-logo">🏭</div>
@@ -22,49 +20,63 @@
     </div>
     <div id="authMsg" class="msg"></div>
     <form id="loginForm" onsubmit="doLogin(event)">
-      <div class="field"><label>Email</label>
-        <input type="email" id="loginEmail" placeholder="nama@email.com" required></div>
-      <div class="field"><label>Password</label>
-        <input type="password" id="loginPassword" placeholder="password kamu" required></div>
+      <div class="field"><label>Email</label><input type="email" id="loginEmail" placeholder="nama@email.com" required></div>
+      <div class="field"><label>Password</label><input type="password" id="loginPassword" placeholder="password kamu" required></div>
       <button type="submit" class="btn btn-primary" id="loginBtn">🔐 Masuk</button>
     </form>
     <form id="registerForm" style="display:none;" onsubmit="doRegister(event)">
-      <div class="field"><label>Email</label>
-        <input type="email" id="regEmail" placeholder="nama@email.com" required></div>
-      <div class="field"><label>Password</label>
-        <input type="password" id="regPassword" placeholder="min. 6 karakter" required></div>
-      <div class="field"><label>Username</label>
-        <input type="text" id="regUsername" placeholder="huruf/angka" required></div>
+      <div class="field"><label>Email</label><input type="email" id="regEmail" placeholder="nama@email.com" required></div>
+      <div class="field"><label>Password</label><input type="password" id="regPassword" placeholder="min. 6 karakter" required></div>
+      <div class="field"><label>Username</label><input type="text" id="regUsername" placeholder="huruf/angka" required></div>
       <button type="submit" class="btn btn-green" id="registerBtn">📝 Buat Akun</button>
     </form>
   </div>
 </section>
 
-<!-- GAME SCREEN -->
+<section id="screen-onboarding" class="screen">
+  <div class="auth-wrap">
+    <div class="auth-logo" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);">✨</div>
+    <div class="auth-title">Buat Profil</div>
+    <div class="auth-sub">Kenalkan perusahaanmu</div>
+    <div id="onboardMsg" class="msg"></div>
+    <div class="field">
+      <label>Logo</label>
+      <div class="avatar-grid">
+        <div class="avatar-opt" data-emoji="🏭">🏭</div>
+        <div class="avatar-opt" data-emoji="⚡">⚡</div>
+        <div class="avatar-opt" data-emoji="🚀">🚀</div>
+        <div class="avatar-opt" data-emoji="🌾">🌾</div>
+        <div class="avatar-opt" data-emoji="⛏️">⛏️</div>
+        <div class="avatar-opt" data-emoji="💎">💎</div>
+        <div class="avatar-opt" data-emoji="🏗️">🏗️</div>
+        <div class="avatar-opt" data-emoji="🔧">🔧</div>
+      </div>
+    </div>
+    <div class="field"><label>Nama Perusahaan</label>
+      <input type="text" id="onboardCompany" placeholder="PT Cahaya Energi" maxlength="30"></div>
+    <button class="btn btn-gold" onclick="submitOnboarding()" id="onboardBtn">🚀 Mulai</button>
+  </div>
+</section>
+
 <section id="screen-game" class="screen">
   <header>
     <div class="hdr-left">
       <div class="logo" id="hdrLogo">🏭</div>
       <div>
         <div class="company-name" id="hdrCompany">PT Anda</div>
-        <div class="company-sub" id="hdrSub">Realtime Market</div>
+        <div class="company-sub">Realtime Market</div>
       </div>
     </div>
     <div class="hdr-right">
       <div class="cash-box" id="hdrCash">$500</div>
       <div class="hdr-meta-row">
         <div class="lvl-box">Lv <span id="hdrLevel">1</span></div>
-        <button class="hdr-profile-btn" onclick="openProfile()" title="Profil">
-          <span id="hdrProfileAvatar">🏭</span>
-        </button>
+        <button class="hdr-profile-btn" onclick="openProfile()"><span id="hdrProfileAvatar">🏭</span></button>
       </div>
     </div>
   </header>
 
-  <div class="ticker" id="tickerBar">
-    <div class="ticker-loading">Memuat harga pasar...</div>
-  </div>
-
+  <div class="ticker" id="tickerBar"><div class="ticker-loading">Memuat harga...</div></div>
   <main class="content" id="gameContent"></main>
 
   <nav class="tabs">
@@ -84,7 +96,7 @@
 <div id="modalContainer"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=99"></script>
-<script src="js/app.js?v=99"></script>
+<script src="js/config.js?v=100"></script>
+<script src="js/app.js?v=100"></script>
 </body>
 </html>
