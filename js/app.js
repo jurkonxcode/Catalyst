@@ -1,27 +1,26 @@
 /* ============================================================
-   CATALYST — app.js v17 (Duration Production)
+   CATALYST — app.js v18 (Workers & Wages)
    ============================================================ */
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-let user = null, profile = null;
-let buildings = {}, inventory = {};
-let marketOrders = [], myOrders = [];
-let leaderboardData = null;
-let transactions = [];
-let research = {};
-let tickerPrices = {};
-let currentTab = 'buildings';
-let storageSubTab = 'rank';
-let historyFilter = 'all';
-let progressRaf = null, researchRaf = null, boostRaf = null;
-let modalItemId = null, modalSellOrderItem = null;
-let marketFilter = 'all';
-let realtimeChannel = null;
-let isGuest = false;
-let buildingView = 'list';
+let user=null,profile=null;
+let buildings={},inventory={};
+let marketOrders=[],myOrders=[];
+let leaderboardData=null;
+let transactions=[];
+let research={};
+let tickerPrices={};
+let currentTab='buildings';
+let storageSubTab='rank';
+let historyFilter='all';
+let progressRaf=null,researchRaf=null,boostRaf=null;
+let modalItemId=null,modalSellOrderItem=null;
+let marketFilter='all';
+let realtimeChannel=null;
+let isGuest=false;
 
-const $ = id => document.getElementById(id);
-const nf = new Intl.NumberFormat('en-US');
-const money = n => '$' + nf.format(Math.floor(n));
+const $=id=>document.getElementById(id);
+const nf=new Intl.NumberFormat('en-US');
+const money=n=>'$'+nf.format(Math.floor(n));
 
 function showScreen(n){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('screen-'+n).classList.add('active');window.scrollTo(0,0);}
 function toast(m,t='info'){const e=$('toast');e.textContent=m;e.className='show '+t;clearTimeout(e._t);e._t=setTimeout(()=>e.className='',2500);}
@@ -31,31 +30,12 @@ function showLoading(t='Loading...'){$('loadingText').textContent=t;$('loading')
 function hideLoading(){$('loading').classList.add('hidden');}
 
 /* RANDOM NAME */
-const NAME_PREFIXES = ['Alpha','Beta','Prime','Swift','Nova','Apex','Zenith','Vertex','Orbit','Pulse','Vortex','Delta','Sigma','Omega','Titan','Fusion','Crystal','Stellar','Nexus','Quantum','Echo','Rapid','Bright','Core'];
-const NAME_SUFFIXES = ['Industries','Corp','Trading','Holdings','Group','Enterprises','Solutions','Logistics','Manufacturing','Ventures','Dynamics','Systems'];
-const NAME_EXTRA = ['Co','Ltd','Inc','LLC','Global','International','Nusantara','Mandiri'];
-function generateRandomCompanyName(){
-  const p = NAME_PREFIXES[Math.floor(Math.random()*NAME_PREFIXES.length)];
-  const s = NAME_SUFFIXES[Math.floor(Math.random()*NAME_SUFFIXES.length)];
-  if(Math.random()<0.5){const e=NAME_EXTRA[Math.floor(Math.random()*NAME_EXTRA.length)];return `${p} ${s} ${e}`;}
-  return `${p} ${s}`;
-}
+const NAME_PREFIXES=['Alpha','Beta','Prime','Swift','Nova','Apex','Zenith','Vertex','Orbit','Pulse','Vortex','Delta','Sigma','Omega','Titan','Fusion','Crystal','Stellar','Nexus','Quantum','Echo','Rapid','Bright','Core'];
+const NAME_SUFFIXES=['Industries','Corp','Trading','Holdings','Group','Enterprises','Solutions','Logistics','Manufacturing','Ventures','Dynamics','Systems'];
+const NAME_EXTRA=['Co','Ltd','Inc','LLC','Global','International','Nusantara','Mandiri'];
+function generateRandomCompanyName(){const p=NAME_PREFIXES[Math.floor(Math.random()*NAME_PREFIXES.length)];const s=NAME_SUFFIXES[Math.floor(Math.random()*NAME_SUFFIXES.length)];if(Math.random()<0.5){const e=NAME_EXTRA[Math.floor(Math.random()*NAME_EXTRA.length)];return `${p} ${s} ${e}`;}return `${p} ${s}`;}
 function generateRandomAvatar(){const a=['🏭','⚡','🚀','🌾','⛏️','💎','🏗️','🔧'];return a[Math.floor(Math.random()*a.length)];}
-
-/* PIXEL AVATAR */
-function generatePixelAvatar(){
-  const size=8;
-  const canvas=document.createElement('canvas');
-  canvas.width=size;canvas.height=size;
-  const ctx=canvas.getContext('2d');
-  ctx.fillStyle='#1a1c20';ctx.fillRect(0,0,size,size);
-  const palette=['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#22d3ee','#f472b6','#34d399','#fb923c','#38bdf8','#a3e635','#facc15','#c084fc','#2dd4bf','#fde047'];
-  const color=palette[Math.floor(Math.random()*palette.length)];
-  ctx.fillStyle=color;
-  const half=Math.ceil(size/2);
-  for(let x=0;x<half;x++){for(let y=0;y<size;y++){if(Math.random()>0.55){ctx.fillRect(x,y,1,1);ctx.fillRect(size-1-x,y,1,1);}}}
-  return canvas.toDataURL('image/png');
-}
+function generatePixelAvatar(){const size=8;const canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d');ctx.fillStyle='#1a1c20';ctx.fillRect(0,0,size,size);const palette=['#4ade80','#60a5fa','#a78bfa','#fbbf24','#f87171','#22d3ee','#f472b6','#34d399','#fb923c','#38bdf8','#a3e635','#facc15','#c084fc','#2dd4bf','#fde047'];const color=palette[Math.floor(Math.random()*palette.length)];ctx.fillStyle=color;const half=Math.ceil(size/2);for(let x=0;x<half;x++){for(let y=0;y<size;y++){if(Math.random()>0.55){ctx.fillRect(x,y,1,1);ctx.fillRect(size-1-x,y,1,1);}}}return canvas.toDataURL('image/png');}
 function isPixelAvatar(a){return typeof a==='string'&&a.indexOf('data:image')===0;}
 function avatarHtml(a){if(!a)a='🏭';if(isPixelAvatar(a)){return `<img src="${a}" alt="">`;}return a;}
 
@@ -109,16 +89,16 @@ async function doLogout(){
 
 /* STARTER PACK */
 async function ensureStarterPack(){
-  if(!isGuest) return;
-  const bc = Object.values(buildings).filter(b => b.level > 0).length;
-  if(bc > 0) return;
-  buildings.farm.level = 1;
+  if(!isGuest)return;
+  const bc=Object.values(buildings).filter(b=>b.level>0).length;
+  if(bc>0)return;
+  buildings.farm.level=1;
   await syncBuilding('farm');
-  inventory.seeds.qty += 5;
-  inventory.water.qty += 15;
-  await Promise.all([syncInventory('seeds'), syncInventory('water')]);
-  await logTransaction('build', 'farm', 0, 0, 'Starter gift');
-  setTimeout(() => toast('🎁 Farm gratis + starter pack!', 'good'), 800);
+  inventory.seeds.qty+=5;
+  inventory.water.qty+=15;
+  await Promise.all([syncInventory('seeds'),syncInventory('water')]);
+  await logTransaction('build','farm',0,0,'Starter gift');
+  setTimeout(()=>toast('🎁 Farm gratis + starter pack!','good'),800);
 }
 
 /* ENTER GAME */
@@ -127,20 +107,18 @@ async function enterGame(){
   const{data:prof,error:pErr}=await sb.from('profiles').select('*').eq('id',user.id).single();
   if(pErr){hideLoading();return showMsg('authMsg','❌ '+pErr.message,'error');}
   profile=prof;
-  if(profile.tutorial_step===undefined) profile.tutorial_step=0;
-  if(profile.tutorial_dismissed===undefined) profile.tutorial_dismissed=false;
-  if(profile.level_rewards_claimed===undefined) profile.level_rewards_claimed='';
-  if(profile.last_emergency_grant===undefined) profile.last_emergency_grant=null;
-  if(!profile.company_name || profile.company_name === 'PT Baru'){
-    const name = generateRandomCompanyName();
-    const avatar = generatePixelAvatar();
-    await sb.from('profiles').update({company_name: name, avatar: avatar}).eq('id', user.id);
-    profile.company_name = name;
-    profile.avatar = avatar;
+  if(profile.tutorial_step===undefined)profile.tutorial_step=0;
+  if(profile.tutorial_dismissed===undefined)profile.tutorial_dismissed=false;
+  if(profile.level_rewards_claimed===undefined)profile.level_rewards_claimed='';
+  if(profile.last_emergency_grant===undefined)profile.last_emergency_grant=null;
+  if(!profile.company_name||profile.company_name==='PT Baru'){
+    const name=generateRandomCompanyName();const avatar=generatePixelAvatar();
+    await sb.from('profiles').update({company_name:name,avatar:avatar}).eq('id',user.id);
+    profile.company_name=name;profile.avatar=avatar;
   }
   try{await sb.from('profiles').update({last_seen:new Date().toISOString()}).eq('id',user.id);}catch(e){}
   profile.last_seen=new Date().toISOString();
-  isGuest = !!(user && user.is_anonymous);
+  isGuest=!!(user&&user.is_anonymous);
   await loadGameData();
   await ensureStarterPack();
   await loadMarketOrders();await loadTransactions();await loadResearch();
@@ -151,8 +129,8 @@ async function enterGame(){
 async function loadGameData(){
   const{data:bData}=await sb.from('buildings').select('*').eq('user_id',user.id);
   buildings={};
-  for(const bId of Object.keys(BUILDINGS))buildings[bId]={level:0,producing:false,endsAt:0,auto:false,upgrading:false,upgradeEndsAt:0,prodQty:0};
-  if(bData){for(const row of bData){if(buildings[row.building_id]){buildings[row.building_id]={level:row.level||0,producing:row.producing||false,endsAt:row.ends_at?new Date(row.ends_at).getTime():0,auto:row.auto||false,upgrading:row.upgrading||false,upgradeEndsAt:row.upgrade_ends_at?new Date(row.upgrade_ends_at).getTime():0,prodQty:row.prod_qty||0};}}}
+  for(const bId of Object.keys(BUILDINGS))buildings[bId]={level:0,producing:false,endsAt:0,auto:false,upgrading:false,upgradeEndsAt:0,prodQty:0,wageCost:0,workersCount:0};
+  if(bData){for(const row of bData){if(buildings[row.building_id]){buildings[row.building_id]={level:row.level||0,producing:row.producing||false,endsAt:row.ends_at?new Date(row.ends_at).getTime():0,auto:row.auto||false,upgrading:row.upgrading||false,upgradeEndsAt:row.upgrade_ends_at?new Date(row.upgrade_ends_at).getTime():0,prodQty:row.prod_qty||0,wageCost:0,workersCount:row.workers_count||0};}}}
   const{data:iData}=await sb.from('inventory').select('*').eq('user_id',user.id);
   inventory={};
   for(const iId of Object.keys(ITEMS))inventory[iId]={qty:0,price:ITEMS[iId].basePrice};
@@ -165,8 +143,8 @@ function renderTicker(){const bar=$('tickerBar');if(!bar)return;let html='',has=
 function jumpToExchange(itemId){marketFilter=itemId;currentTab='exchange';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));const el=document.querySelector('.tab[data-tab="exchange"]');if(el)el.classList.add('active');render();}
 function subscribeRealtime(){if(realtimeChannel)sb.removeChannel(realtimeChannel);realtimeChannel=sb.channel('jc-market').on('postgres_changes',{event:'*',schema:'public',table:'market_orders'},async()=>{await loadMarketOrders();if(currentTab==='exchange')render();}).subscribe();}
 
-async function syncProfile(){const cv=getCompanyValue();profile.company_value=cv;await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);if(profile.cash>=5000) advanceTutorial(6);}
-async function syncBuilding(bId){const b=buildings[bId];await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null,prod_qty:b.prodQty||0},{onConflict:'user_id,building_id'});}
+async function syncProfile(){const cv=getCompanyValue();profile.company_value=cv;await sb.from('profiles').update({cash:profile.cash,xp:profile.xp,level:profile.level,company_value:cv}).eq('id',user.id);if(profile.cash>=5000)advanceTutorial(6);}
+async function syncBuilding(bId){const b=buildings[bId];await sb.from('buildings').upsert({user_id:user.id,building_id:bId,level:b.level,auto:b.auto,producing:b.producing,ends_at:b.endsAt?new Date(b.endsAt).toISOString():null,upgrading:b.upgrading,upgrade_ends_at:b.upgradeEndsAt?new Date(b.upgradeEndsAt).toISOString():null,prod_qty:b.prodQty||0,workers_count:b.workersCount||0},{onConflict:'user_id,building_id'});}
 async function syncInventory(itemId){await sb.from('inventory').upsert({user_id:user.id,item_id:itemId,qty:inventory[itemId].qty},{onConflict:'user_id,item_id'});}
 
 function buildCost(bId){return BUILDINGS[bId].baseCost;}
@@ -178,6 +156,11 @@ function getMaxQtyByResources(bId){const b=BUILDINGS[bId];let maxQty=Infinity;fo
 function getOutputQty(bId){const l=buildings[bId].level;return l?Math.floor(BUILDINGS[bId].output.qty*(1+(l-1)*0.5)):0;}
 function hasInputs(bId){for(const it of Object.keys(BUILDINGS[bId].inputs)){if(inventory[it].qty<=0)return false;}return true;}
 function formatDuration(sec){if(sec<60)return sec+'s';if(sec<3600)return Math.floor(sec/60)+'m '+((sec%60)?(sec%60)+'s':'');return Math.floor(sec/3600)+'j '+Math.floor((sec%3600)/60)+'m';}
+
+/* WORKERS & WAGES */
+function getWorkersCount(bId){const st=buildings[bId];const b=BUILDINGS[bId];if(!st.level)return 0;return b.workers*st.level;}
+function getWagePerHour(bId){const b=BUILDINGS[bId];return b.wage;}
+function getWageCostForDuration(bId,durationMs){const workers=getWorkersCount(bId);const wage=getWagePerHour(bId);const hours=durationMs/3600000;return Math.ceil(workers*wage*hours);}
 
 function addXP(n){profile.xp+=n;const nl=1+Math.floor(profile.xp/1500);if(nl>profile.level){profile.level=nl;toast('🎉 Lv '+nl+'!','good');checkLevelRewards();}}
 async function checkLevelRewards(){const claimed=(profile.level_rewards_claimed||'').split(',').filter(x=>x);for(const[lvlStr,reward]of Object.entries(LEVEL_REWARDS)){const lvl=parseInt(lvlStr);if(profile.level>=lvl&&!claimed.includes(lvlStr)){profile.cash+=reward;claimed.push(lvlStr);profile.level_rewards_claimed=claimed.join(',');await syncProfile();setTimeout(()=>{toast('🎁 '+t('levelup_reward')+' Lv '+lvl+': +'+money(reward),'good');},600);}}}
@@ -204,17 +187,15 @@ function updateMMTotal(price){const v=parseInt($('mmQty').value)||0;$('mmTotal')
 async function confirmMarketMakerBuy(itemId,price){const qty=parseInt($('mmQty').value)||0;if(qty<=0)return;const total=qty*price;if(total>profile.cash)return toast(t('t_not_enough_money'),'bad');$('mmBuyBtn').disabled=true;$('mmBuyBtn').textContent='⏳...';profile.cash-=total;inventory[itemId].qty+=qty;await Promise.all([syncProfile(),syncInventory(itemId)]);await logTransaction('buy_market_maker',itemId,qty,-total);if(itemId==='seeds')await advanceTutorial(1);if(itemId==='water')await advanceTutorial(2);closeModal();render();toast('🛒 +'+qty+' '+ITEMS[itemId].emoji+' (-'+money(total)+')','good');}
 
 /* BUILD */
-async function build(bId){const st=buildings[bId];if(st.level>0||st.upgrading)return;const c=buildCost(bId);if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');const rem=profile.cash-c;if(rem<500){const msg=currentLang==='id'?`⚠️ Peringatan!\n\nBangun ${t(BUILDINGS[bId].nameKey)} akan memakan $${nf.format(c)}.\n\nSisa uang: $${nf.format(rem)}\n\nLanjut?`:`Warning! Cost $${nf.format(c)}. Remaining $${nf.format(rem)}. Continue?`;if(!confirm(msg))return toast('Cancelled','info');}const oc=profile.cash,ou=st.upgrading,oe=st.upgradeEndsAt;profile.cash-=c;st.upgrading=true;st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);try{await Promise.all([syncProfile(),syncBuilding(bId)]);}catch(e){profile.cash=oc;st.upgrading=ou;st.upgradeEndsAt=oe;return toast('❌ '+e.message,'bad');}await logTransaction('build',bId,0,-c);const bc=Object.values(buildings).filter(b=>b.level>0).length;if(bc>=1)await advanceTutorial(5);render();const sec=Math.floor(getUpgradeDurationMs(bId)/1000);toast('🏗️ '+t(BUILDINGS[bId].nameKey)+' · '+sec+'s','info');scheduleUpgradeFinish(bId);}
-async function upgrade(bId){const st=buildings[bId];if(!st.level)return build(bId);if(st.upgrading)return toast(t('status_upgrading')+'...','info');if(st.producing)return toast('Wait','info');if(st.level>=CONFIG.MAX_LEVEL)return toast(t('t_max_level'),'info');const c=upgradeCost(bId);if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');const rem=profile.cash-c;if(rem<500){const msg=currentLang==='id'?`⚠️ Upgrade ${t(BUILDINGS[bId].nameKey)} ke Lv ${st.level+1} biaya $${nf.format(c)}. Sisa $${nf.format(rem)}. Lanjut?`:`Upgrade ${t(BUILDINGS[bId].nameKey)} to Lv ${st.level+1} cost $${nf.format(c)}. Remaining $${nf.format(rem)}. Continue?`;if(!confirm(msg))return toast('Cancelled','info');}const oc=profile.cash,ou=st.upgrading,oe=st.upgradeEndsAt;profile.cash-=c;st.upgrading=true;st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);try{await Promise.all([syncProfile(),syncBuilding(bId)]);}catch(e){profile.cash=oc;st.upgrading=ou;st.upgradeEndsAt=oe;return toast('❌ '+e.message,'bad');}await logTransaction('upgrade',bId,0,-c,'Lv '+(st.level+1));render();toast(t('t_upgrade_started')+' ('+Math.floor(getUpgradeDurationMs(bId)/1000)+'s)','info');scheduleUpgradeFinish(bId);}
+async function build(bId){const st=buildings[bId];if(st.level>0||st.upgrading)return;const c=buildCost(bId);if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');const rem=profile.cash-c;if(rem<500){const msg=currentLang==='id'?`⚠️ Bangun ${t(BUILDINGS[bId].nameKey)} biaya $${nf.format(c)}. Sisa $${nf.format(rem)}. Lanjut?`:`Build ${t(BUILDINGS[bId].nameKey)} cost $${nf.format(c)}. Remaining $${nf.format(rem)}. Continue?`;if(!confirm(msg))return toast('Cancelled','info');}const oc=profile.cash,ou=st.upgrading,oe=st.upgradeEndsAt;profile.cash-=c;st.upgrading=true;st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);try{await Promise.all([syncProfile(),syncBuilding(bId)]);}catch(e){profile.cash=oc;st.upgrading=ou;st.upgradeEndsAt=oe;return toast('❌ '+e.message,'bad');}await logTransaction('build',bId,0,-c);const bc=Object.values(buildings).filter(b=>b.level>0).length;if(bc>=1)await advanceTutorial(5);render();const sec=Math.floor(getUpgradeDurationMs(bId)/1000);toast('🏗️ '+t(BUILDINGS[bId].nameKey)+' · '+sec+'s','info');scheduleUpgradeFinish(bId);}
+async function upgrade(bId){const st=buildings[bId];if(!st.level)return build(bId);if(st.upgrading)return toast(t('status_upgrading')+'...','info');if(st.producing)return toast('Wait','info');if(st.level>=CONFIG.MAX_LEVEL)return toast(t('t_max_level'),'info');const c=upgradeCost(bId);if(profile.cash<c)return toast(t('t_not_enough_money'),'bad');const rem=profile.cash-c;if(rem<500){const msg=currentLang==='id'?`⚠️ Upgrade biaya $${nf.format(c)}. Sisa $${nf.format(rem)}. Lanjut?`:`Upgrade cost $${nf.format(c)}. Remaining $${nf.format(rem)}. Continue?`;if(!confirm(msg))return toast('Cancelled','info');}const oc=profile.cash,ou=st.upgrading,oe=st.upgradeEndsAt;profile.cash-=c;st.upgrading=true;st.upgradeEndsAt=Date.now()+getUpgradeDurationMs(bId);try{await Promise.all([syncProfile(),syncBuilding(bId)]);}catch(e){profile.cash=oc;st.upgrading=ou;st.upgradeEndsAt=oe;return toast('❌ '+e.message,'bad');}await logTransaction('upgrade',bId,0,-c,'Lv '+(st.level+1));render();toast(t('t_upgrade_started')+' ('+Math.floor(getUpgradeDurationMs(bId)/1000)+'s)','info');scheduleUpgradeFinish(bId);}
 function scheduleUpgradeFinish(bId){const st=buildings[bId];const r=st.upgradeEndsAt-Date.now();if(r<=0){finishUpgrade(bId);return;}clearTimeout(st._upTimer);st._upTimer=setTimeout(()=>finishUpgrade(bId),r);}
 async function finishUpgrade(bId){const st=buildings[bId];if(!st.upgrading)return;const wnb=st.level===0;st.upgrading=false;st.upgradeEndsAt=0;st.level+=1;await syncBuilding(bId);render();if(wnb){toast('🏭 '+t(BUILDINGS[bId].nameKey)+' '+t('t_building_done'),'good');}else{toast('🎉 '+t(BUILDINGS[bId].nameKey)+' → Lv '+st.level+'!','good');}}
 
-/* TOGGLE AUTO */
+/* AUTO */
 async function toggleAuto(bId){const st=buildings[bId];st.auto=!st.auto;await syncBuilding(bId);render();if(st.auto&&!st.producing&&!st.upgrading&&hasInputs(bId))autoStartProduction(bId);}
 
-/* ============================================================
-   PRODUCTION — DURATION BASED
-   ============================================================ */
+/* PRODUCTION MODAL */
 function openProductionModal(bId){
   const st=buildings[bId];
   if(!st.level||st.producing||st.upgrading)return;
@@ -241,7 +222,10 @@ function renderProductionModal(){
   const durSec=Math.floor(durationMs/1000);
   const durText=formatDuration(durSec);
   const outDef=ITEMS[b.output.item];
-  $('modalContainer').innerHTML=`<div class="modal-backdrop" id="prodBackdrop" onclick="if(event.target.id==='prodBackdrop')closeProdModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">${b.emoji} ${currentLang==='id'?'Produksi':'Production'} ${t(b.nameKey)}</div><div class="modal-field"><label>${currentLang==='id'?'Pilih Durasi':'Duration'}</label><div class="duration-grid">${presets.map(p=>`<button class="duration-btn ${selected===p.label?'active':''}" onclick="selectDuration('${p.label}')">${p.label}</button>`).join('')}</div></div><div class="modal-info"><div class="modal-info-row"><span class="k">${currentLang==='id'?'Hasil':'Output'}</span><span class="v">${nf.format(qty)}× ${outDef.emoji} ${t(outDef.nameKey)}</span></div><div class="modal-info-row"><span class="k">${currentLang==='id'?'Selesai dalam':'Finish in'}</span><span class="v">${durText}</span></div></div><div class="modal-field"><label>${currentLang==='id'?'Bahan Dibutuhkan':'Materials'}</label><div class="material-list">${Object.entries(inputsReq).map(([itemId,need])=>{const have=inventory[itemId].qty;const ok=have>=need;return `<div class="material-row ${ok?'ok':'bad'}"><span>${ITEMS[itemId].emoji} ${t(ITEMS[itemId].nameKey)}</span><span>${nf.format(need)} / ${nf.format(have)}</span></div>`;}).join('')}</div></div><div class="btn-row"><button class="btn btn-outline" onclick="closeProdModal()">${t('sell_cancel')}</button><button class="btn btn-green" onclick="confirmProduction()">⚡ ${currentLang==='id'?'Mulai':'Start'}</button></div></div></div>`;
+  const wageCost=getWageCostForDuration(bId,durationMs);
+  const workers=getWorkersCount(bId);
+  const canAffordWage=profile.cash>=wageCost;
+  $('modalContainer').innerHTML=`<div class="modal-backdrop" id="prodBackdrop" onclick="if(event.target.id==='prodBackdrop')closeProdModal()"><div class="modal-sheet" onclick="event.stopPropagation()"><div class="modal-grip"></div><div class="modal-title">${b.emoji} ${currentLang==='id'?'Produksi':'Production'} ${t(b.nameKey)}</div><div class="modal-field"><label>${currentLang==='id'?'Pilih Durasi':'Duration'}</label><div class="duration-grid">${presets.map(p=>`<button class="duration-btn ${selected===p.label?'active':''}" onclick="selectDuration('${p.label}')">${p.label}</button>`).join('')}</div></div><div class="modal-info"><div class="modal-info-row"><span class="k">${currentLang==='id'?'Hasil':'Output'}</span><span class="v">${nf.format(qty)}× ${outDef.emoji} ${t(outDef.nameKey)}</span></div><div class="modal-info-row"><span class="k">${currentLang==='id'?'Selesai':'Finish'}</span><span class="v">${durText}</span></div><div class="modal-info-row"><span class="k">👷 ${t('workers_label')}</span><span class="v">${nf.format(workers)}</span></div><div class="modal-info-row"><span class="k">💵 ${t('wages_cost')}</span><span class="v" style="color:${canAffordWage?'#2e9e4f':'#e03e3e'}">${money(wageCost)}</span></div></div><div class="modal-field"><label>${currentLang==='id'?'Bahan Dibutuhkan':'Materials'}</label><div class="material-list">${Object.entries(inputsReq).map(([itemId,need])=>{const have=inventory[itemId].qty;const ok=have>=need;return `<div class="material-row ${ok?'ok':'bad'}"><span>${ITEMS[itemId].emoji} ${t(ITEMS[itemId].nameKey)}</span><span>${nf.format(need)} / ${nf.format(have)}</span></div>`;}).join('')}</div></div><div class="btn-row"><button class="btn btn-outline" onclick="closeProdModal()">${t('sell_cancel')}</button><button class="btn btn-green" onclick="confirmProduction()" ${!canAffordWage?'disabled':''}>${canAffordWage?'⚡ '+(currentLang==='id'?'Mulai':'Start'):'💸 '+(currentLang==='id'?'Kas Kurang':'No Cash')}</button></div></div></div>`;
 }
 async function confirmProduction(){
   const modal=window._prodModal;
@@ -255,13 +239,16 @@ async function confirmProduction(){
   if(selected==='MAX'){qty=maxQty;durationMs=Math.floor(qty*baseTime);}
   else{const p=presets.find(x=>x.label===selected);durationMs=p.ms;qty=Math.min(maxQty,Math.floor(durationMs/baseTime));}
   if(qty<=0)return toast(t('t_insufficient_input'),'bad');
+  const wageCost=getWageCostForDuration(bId,durationMs);
+  if(profile.cash<wageCost)return toast(t('t_not_enough_money'),'bad');
   for(const itemId of Object.keys(b.inputs)){const need=Math.ceil(qty*getQtyPerUnitInput(bId,itemId));inventory[itemId].qty-=need;}
-  st.producing=true;st.endsAt=Date.now()+durationMs;st.prodQty=qty;
-  const promises=[syncBuilding(bId)];
+  profile.cash-=wageCost;
+  st.producing=true;st.endsAt=Date.now()+durationMs;st.prodQty=qty;st.wageCost=wageCost;
+  const promises=[syncBuilding(bId),syncProfile()];
   for(const itemId of Object.keys(b.inputs))promises.push(syncInventory(itemId));
   await Promise.all(promises);
   closeProdModal();render();scheduleFinish(bId);
-  toast('⚡ '+qty+'× '+t(ITEMS[b.output.item].nameKey)+' • '+formatDuration(Math.floor(durationMs/1000)),'good');
+  toast('⚡ '+qty+'× '+t(ITEMS[b.output.item].nameKey)+' • -'+money(wageCost),'good');
 }
 async function autoStartProduction(bId){
   const st=buildings[bId];
@@ -273,9 +260,12 @@ async function autoStartProduction(bId){
   const durationMs=5000;
   const qty=Math.min(maxQty,Math.floor(durationMs/baseTime));
   if(qty<=0)return;
+  const wageCost=getWageCostForDuration(bId,durationMs);
+  if(profile.cash<wageCost){if(st.auto){st.auto=false;await syncBuilding(bId);toast('⚠️ Auto OFF — kas kurang','info');}return;}
   for(const itemId of Object.keys(b.inputs)){inventory[itemId].qty-=Math.ceil(qty*getQtyPerUnitInput(bId,itemId));}
-  st.producing=true;st.endsAt=Date.now()+durationMs;st.prodQty=qty;
-  const promises=[syncBuilding(bId)];
+  profile.cash-=wageCost;
+  st.producing=true;st.endsAt=Date.now()+durationMs;st.prodQty=qty;st.wageCost=wageCost;
+  const promises=[syncBuilding(bId),syncProfile()];
   for(const itemId of Object.keys(b.inputs))promises.push(syncInventory(itemId));
   await Promise.all(promises);
   render();scheduleFinish(bId);
@@ -286,11 +276,13 @@ async function finishProduction(bId){
   if(!st.producing)return;
   const b=BUILDINGS[bId];
   const qty=st.prodQty||getOutputQty(bId);
-  st.producing=false;st.endsAt=0;st.prodQty=0;
+  const wageCost=st.wageCost||0;
+  st.producing=false;st.endsAt=0;st.prodQty=0;st.wageCost=0;
   inventory[b.output.item].qty+=qty;
   addXP(qty);
   await Promise.all([syncBuilding(bId),syncInventory(b.output.item),syncProfile()]);
   await logTransaction('produce',b.output.item,qty,0,t(BUILDINGS[bId].nameKey));
+  if(wageCost>0)await logTransaction('wages',null,0,-wageCost,t(BUILDINGS[bId].nameKey));
   if(b.output.item==='apples')await advanceTutorial(3);
   if(st.auto&&hasInputs(bId)&&!st.upgrading)setTimeout(()=>autoStartProduction(bId),50);
   else render();
@@ -363,8 +355,7 @@ function resumeAllActions(){
   }
 }
 
-/* PROFILE */
-function openProfile(){currentTab='profile';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));render();}
+/* STORAGE */
 function setStorageSub(id){storageSubTab=id;if(id==='rank'){leaderboardData=null;render();loadLeaderboard().then(()=>{if(currentTab==='storage'&&storageSubTab==='rank')render();});return;}if(id==='history'){transactions=[];render();loadTransactions().then(()=>{if(currentTab==='storage'&&storageSubTab==='history')render();});return;}if(id==='research'){research={};render();loadResearch().then(()=>{if(currentTab==='storage'&&storageSubTab==='research'){render();resumeAllResearch();}});return;}render();}
 function setHistoryFilter(f){historyFilter=f;render();}
 
@@ -374,6 +365,9 @@ function renderBuildingsListTab(){let h='<div class="section-title">'+t('buildin
 function renderHistoryTab(){let h='<div class="section-title">'+t('history_title')+'</div>';h+='<div class="ex-filters">';h+=`<div class="ex-chip ${historyFilter==='all'?'active':''}" onclick="setHistoryFilter('all')">${t('history_filter_all')}</div>`;h+=`<div class="ex-chip ${historyFilter==='in'?'active':''}" onclick="setHistoryFilter('in')">⬇️ ${t('history_filter_in')}</div>`;h+=`<div class="ex-chip ${historyFilter==='out'?'active':''}" onclick="setHistoryFilter('out')">⬆️ ${t('history_filter_out')}</div>`;h+='</div>';let f=transactions;if(historyFilter==='in')f=transactions.filter(tx=>tx.amount>0);else if(historyFilter==='out')f=transactions.filter(tx=>tx.amount<0);if(f.length===0){h+='<div class="ex-empty"><span class="big">📜</span>'+t('history_empty')+'</div>';return h;}for(const tx of f){const def=tx.item_id?ITEMS[tx.item_id]:null;const isIn=tx.amount>0;const isN=tx.amount===0;let c='#5a6472';if(isIn)c='#2e9e4f';else if(!isN)c='#e03e3e';const aStr=tx.amount===0?'':((tx.amount>0?'+':'')+money(Math.abs(tx.amount)));const ic=isIn?'⬇️':(isN?'🔄':'⬆️');const tl=t('tx_'+tx.type)||tx.type;h+=`<div class="card" style="display:flex;align-items:center;gap:12px;padding:11px 12px;margin-bottom:7px;"><div style="font-size:20px;flex-shrink:0;">${def?def.emoji:ic}</div><div style="flex:1;min-width:0;"><div style="font-size:12.5px;font-weight:800;">${tl}${def?' · '+t(def.nameKey):''}</div><div style="font-size:10.5px;color:var(--text-mute);margin-top:2px;">${tx.qty>0?nf.format(tx.qty)+' unit · ':''}${timeAgo(tx.created_at)}</div></div><div style="font-size:12.5px;font-weight:800;color:${c};font-variant-numeric:tabular-nums;flex-shrink:0;">${aStr}</div></div>`;}return h;}
 function renderResearchTab(){if(Object.keys(research).length===0)return '<div class="ex-empty">⏳</div>';let h='<div class="section-title">'+t('research_title')+'</div>';h+='<div style="background:var(--surface-2);padding:12px;border-radius:10px;margin-bottom:12px;font-size:12px;color:var(--text-dim);line-height:1.5;">'+t('research_intro')+'</div>';for(const itemId of RESEARCH_CONFIG.PILOT_ITEMS){const def=ITEMS[itemId];const r=research[itemId];const mx=r.level>=RESEARCH_CONFIG.MAX_LEVEL;const cost=getResearchCost(r.level);const can=profile.cash>=cost;let stt='',bt='',pt='';if(mx){stt='<span class="status auto">'+t('research_max')+'</span>';bt='<button class="btn btn-outline btn-sm" disabled>'+t('research_max')+'</button>';}else if(r.researching){stt='<span class="status busy">'+t('research_in_progress')+'</span>';bt='<button class="btn btn-purple btn-sm" disabled>⏳</button>';pt='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-research-bar="'+itemId+'"></div></div><div class="prog-text" data-research-text="'+itemId+'"></div></div>';}else{stt='<span class="status idle">'+t('status_ready')+'</span>';const dis=!can?'disabled':'';bt='<button class="btn btn-purple btn-sm" '+dis+' onclick="startResearch(\''+itemId+'\')">'+t('research_start')+' · '+money(cost)+'</button>';}h+='<div class="card building-card"><div class="b-row1"><div class="b-emoji">'+def.emoji+'</div><div class="b-info"><div class="b-name">'+t(def.nameKey)+'</div><div class="b-desc" style="font-size:14px;letter-spacing:2px;margin-top:4px;">'+starsHtml(r.level)+'</div><div class="b-recipe">'+t('research_star_level')+': <b>'+r.level+' / '+RESEARCH_CONFIG.MAX_LEVEL+'</b></div></div><div>'+stt+'</div></div>'+pt+bt+'</div>';}return h;}
 function renderComingSoon(){return `<div class="ex-empty"><span class="big">🚧</span><div style="font-weight:800;font-size:14px;color:var(--text);margin-bottom:6px;">${t('coming_soon_title')}</div><div style="font-size:11.5px;">${t('coming_soon_desc')}</div></div>`;}
+
+/* PROFILE */
+function openProfile(){currentTab='profile';document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));render();}
 
 /* MAIN RENDER */
 function render(){
@@ -407,7 +401,7 @@ function renderOneBuilding(bId,b){
   const bc=buildCost(bId),uc=upgradeCost(bId);
   const outQty=bl?getOutputQty(bId):b.output.qty;
   const rate=(b.output.qty/(b.duration/1000)).toFixed(1);
-  const inputsText=Object.entries(b.inputs).map(([itId])=>{const need=bl?Math.ceil(getQtyPerUnitInput(bId,itId)*(bl?getOutputQty(bId):b.output.qty)):b.inputs[itId];const have=inventory[itId].qty;const ok=have>=need;return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';}).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
+  const inputsText=Object.entries(b.inputs).map(([itId])=>{const need=bl?Math.ceil(getQtyPerUnitInput(bId,itId)*getOutputQty(bId)):b.inputs[itId];const have=inventory[itId].qty;const ok=have>=need;return '<span style="color:'+(ok?'#2e9e4f':'#e03e3e')+'">'+need+'× '+ITEMS[itId].emoji+'</span>';}).join(' + ')||'<span style="color:#2e9e4f">Free</span>';
   let sh='';
   if(cons)sh='<span class="status busy">🏗️ Build</span>';
   else if(!bl)sh='<span class="status locked">'+t('status_not_built')+'</span>';
@@ -430,7 +424,8 @@ function renderOneBuilding(bId,b){
   let ph='';
   if(cons||upg){ph='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar upgrade" data-upbar="'+bId+'"></div></div><div class="prog-text" data-uptext="'+bId+'"></div></div>';}
   else if(st.producing){ph='<div class="prog-wrap"><div class="prog-track"><div class="prog-bar" data-bar="'+bId+'"></div></div><div class="prog-text" data-text="'+bId+'"></div></div>';}
-  return '<div class="card building-card" data-bid="'+bId+'"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+t(b.nameKey)+' '+(bl?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+t(b.descKey)+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b> <span style="opacity:0.7">('+rate+'/s)</span></div></div><div>'+sh+'</div></div>'+ph+bh+'</div>';
+  const workerInfo=bl?('<div class="b-recipe" style="margin-top:4px;font-size:11px;opacity:0.85;">👷 '+nf.format(b.workers*st.level)+' '+t('workers_label')+' · 💵 '+money(b.wage*st.level)+'/'+(currentLang==='id'?'jam':'h')+'</div>'):'';
+  return '<div class="card building-card" data-bid="'+bId+'"><div class="b-row1"><div class="b-emoji">'+b.emoji+'</div><div class="b-info"><div class="b-name">'+t(b.nameKey)+' '+(bl?'<span class="lvl-badge">Lv '+st.level+'</span>':'')+'</div><div class="b-desc">'+t(b.descKey)+'</div><div class="b-recipe">'+inputsText+' → <b>'+outQty+'× '+ITEMS[b.output.item].emoji+'</b> <span style="opacity:0.7">('+rate+'/s)</span></div>'+workerInfo+'</div><div>'+sh+'</div></div>'+ph+bh+'</div>';
 }
 
 function renderExchange(){
@@ -462,7 +457,7 @@ function renderOrderRow(o,isMine){const def=ITEMS[o.item_id];if(!def)return '';c
 function renderProfile(){
   const r=getRating();const v=getCompanyValue();const d=profile.company_description||'';const c=profile.country||'Indonesia';const e=fmtDate(profile.created_at);const ls=timeAgo(profile.last_seen);const lt=fmtTime();const bc=Object.values(buildings).filter(b=>b.level>0).length;
   const gb=isGuest?`<div class="card" style="border:1px solid rgba(230,149,0,0.4);background:linear-gradient(180deg,#fff5d9,#fff);padding:12px;"><div style="display:flex;align-items:center;gap:10px;"><div style="font-size:22px;">⚠️</div><div style="flex:1;"><div style="font-size:12.5px;font-weight:800;color:#8a6000;">${t('guest_banner')}</div></div><button class="btn btn-gold btn-sm" style="width:auto;padding:8px 12px;" onclick="openSaveModal()">${t('guest_banner_btn')}</button></div></div>`:'';
-  return gb+`<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${avatarHtml(profile.avatar)}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(v)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${r.cls}">${r.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${bc} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${c}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${e}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${ls}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${lt}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${d}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>${isGuest?'':`<div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>`}<div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${isGuest?(currentLang==='id'?'Keluar dari Tamu':'Log out Guest'):t('p_logout')}</div><div class="account-arrow">›</div></div>${isGuest?'':`<div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>`}</div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v17 · Duration Production</div>`;
+  return gb+`<div class="profile-hero"><div class="profile-hero-top"><div class="profile-logo">${avatarHtml(profile.avatar)}</div><div class="profile-hero-info"><div class="profile-status"><span class="dot"></span>${t('p_online')}</div><div class="profile-company-name">${profile.company_name}</div><div class="profile-company-type">${t('p_pt')} · @${profile.username}</div></div></div><div class="profile-actions"><button class="profile-btn" onclick="copyCompanyId()">${t('p_copy_id')}</button><button class="profile-btn" onclick="openEditProfileModal()">${t('p_edit_profile')}</button></div></div><div class="card"><div class="card-section-header">${t('p_rankings')}</div><div class="ranking-box"><div class="ranking-item"><div class="ranking-label">${t('p_company_value')}</div><div class="ranking-value gold">${money(v)}</div></div><div class="ranking-item"><div class="ranking-label">${t('p_eva')}</div><div class="ranking-value">${nf.format(profile.xp)}</div></div></div></div><div class="card"><div class="card-section-header">${t('p_info')}</div><div class="p-compact-list"><div class="info-row"><span class="info-key">${t('p_rating')}</span><span class="info-val"><span class="rating-badge ${r.cls}">${r.text}</span></span></div><div class="info-row"><span class="info-key">${t('p_level')}</span><span class="info-val">${profile.level}</span></div><div class="info-row"><span class="info-key">${t('p_xp')}</span><span class="info-val">${nf.format(profile.xp)}</span></div><div class="info-row"><span class="info-key">${t('p_buildings')}</span><span class="info-val">${bc} ${t('p_units')}</span></div><div class="info-row"><span class="info-key">${t('p_country')}</span><span class="info-val">🇮🇩 ${c}</span></div><div class="info-row"><span class="info-key">${t('p_established')}</span><span class="info-val">${e}</span></div><div class="info-row"><span class="info-key">${t('p_last_seen')}</span><span class="info-val">${ls}</span></div><div class="info-row"><span class="info-key">${t('p_local_time')}</span><span class="info-val">${lt}</span></div></div></div><div class="card"><div class="card-section-header">${t('p_description')}</div><textarea class="description-textarea" id="descInput" placeholder="${t('p_description_ph')}" maxlength="200">${d}</textarea><button class="btn btn-green btn-sm" style="margin-top:10px;" onclick="saveDescription()">${t('btn_save_desc')}</button></div><div class="card"><div class="card-section-header">${t('p_account')}</div><div class="account-menu"><div class="account-item" onclick="showLangPicker()"><div class="account-icon">🌐</div><div class="account-label">${t('p_language')}</div><div class="account-arrow" style="font-weight:700;color:var(--text-dim);font-size:12px;">${currentLang==='id'?'🇮🇩 ID':'🇬🇧 EN'}</div></div>${isGuest?'':`<div class="account-item" onclick="changePassword()"><div class="account-icon">🔑</div><div class="account-label">${t('p_change_password')}</div><div class="account-arrow">›</div></div>`}<div class="account-item" onclick="doLogout()"><div class="account-icon">🚪</div><div class="account-label">${isGuest?(currentLang==='id'?'Keluar dari Tamu':'Log out Guest'):t('p_logout')}</div><div class="account-arrow">›</div></div>${isGuest?'':`<div class="account-item" onclick="deleteAccount()"><div class="account-icon" style="background:#fdeaea;border-color:#f5b8b8;">🗑️</div><div class="account-label danger">${t('p_delete')}</div><div class="account-arrow">›</div></div>`}</div></div><div style="text-align:center;font-size:10px;color:var(--text-mute);padding:14px 0 8px;">Catalyst · v18 · Workers & Wages</div>`;
 }
 async function saveDescription(){const ta=document.getElementById('descInput');if(!ta)return;const d=ta.value.trim();if(d.length>200)return toast('Max 200','bad');const{error}=await sb.from('profiles').update({company_description:d}).eq('id',user.id);if(error)return toast('❌','bad');profile.company_description=d;toast(t('t_desc_saved'),'good');}
 function copyCompanyId(){const text=profile.username+' (ID: '+user.id.slice(0,8)+')';if(navigator.clipboard)navigator.clipboard.writeText(text).then(()=>toast(t('t_copied'),'good')).catch(()=>prompt('Copy:',text));else prompt('Copy:',text);}
@@ -495,12 +490,11 @@ function tickProgress(){
       if(r<=0)finishUpgrade(bId);
     }
     if(st.producing&&st.endsAt){
-      a=true;const dur=st.prodQty?Math.max(1,st.endsAt-Date.now()):0;const total=Math.max(1,st.endsAt-Date.now()+(st.prodQty||1));
+      a=true;
       const remain=Math.max(0,st.endsAt-Date.now());
-      const bar=document.querySelector('[data-bar="'+bId+'"]');const txt=document.querySelector('[data-text="'+bId+'"]');
-      // Simple progress: use 5min as max display
       const maxDur=300000;
       const pct=Math.min(100,100-(remain/maxDur*100));
+      const bar=document.querySelector('[data-bar="'+bId+'"]');const txt=document.querySelector('[data-text="'+bId+'"]');
       if(bar)bar.style.width=pct+'%';
       if(txt)txt.textContent=(currentLang==='id'?'Produksi: ':'Producing: ')+(remain/1000).toFixed(1)+'s';
       if(remain<=0)finishProduction(bId);
@@ -523,6 +517,16 @@ document.querySelectorAll('.tab').forEach(el=>{
   });
 });
 
+/* ENSURE GUEST PROFILE */
+async function ensureGuestProfile(){
+  const {data:existing}=await sb.from('profiles').select('id,company_name').eq('id',user.id).maybeSingle();
+  if(existing&&existing.company_name&&existing.company_name!=='PT Baru')return;
+  const name=generateRandomCompanyName();
+  const avatar=generatePixelAvatar();
+  const username='guest_'+user.id.slice(0,6);
+  await sb.from('profiles').upsert({id:user.id,username:username,company_name:name,avatar:avatar,cash:500},{onConflict:'id'});
+}
+
 /* INIT */
 (async()=>{
   document.documentElement.lang=currentLang;
@@ -536,10 +540,7 @@ document.querySelectorAll('.tab').forEach(el=>{
   } else {
     try {
       const {data:anon,error}=await sb.auth.signInAnonymously();
-      if(error){
-        hideLoading();showScreen('auth');
-        return;
-      }
+      if(error){hideLoading();showScreen('auth');return;}
       user=anon.user;isGuest=true;
       await ensureGuestProfile();
       await enterGame();
@@ -549,12 +550,4 @@ document.querySelectorAll('.tab').forEach(el=>{
   }
   setInterval(recoverPrices,12000);
 })();
-
-async function ensureGuestProfile(){
-  const {data:existing}=await sb.from('profiles').select('id,company_name').eq('id',user.id).maybeSingle();
-  if(existing&&existing.company_name&&existing.company_name!=='PT Baru')return;
-  const name=generateRandomCompanyName();
-  const avatar=generatePixelAvatar();
-  const username='guest_'+user.id.slice(0,6);
-  await sb.from('profiles').upsert({id:user.id,username:username,company_name:name,avatar:avatar,cash:500},{onConflict:'id'});
-   }
+                                                                                                                                                                                                                  
